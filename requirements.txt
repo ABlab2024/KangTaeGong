@@ -1,2 +1,13 @@
-supabase
+asyncpg
+beautifulsoup4
+fastapi
+feedparser
+google-generativeai
+jinja2
+openai
+pgvector
+pydantic-settings
 python-dotenv
+sqlalchemy
+supabase
+uvicorn

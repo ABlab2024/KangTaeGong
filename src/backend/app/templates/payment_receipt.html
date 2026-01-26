@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+        }
+
+        .header {
+            background: #28a745;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .receipt {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .receipt-row:last-child {
+            border-bottom: none;
+            font-weight: bold;
+        }
+
+        .button {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            font-size: 11px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ 결제가 완료되었습니다</h1>
+        </div>
+        <div class="content">
+            <p>안녕하세요, <strong>{{ recipient_name }}</strong>님</p>
+            <p>아래 결제가 정상적으로 처리되었습니다.</p>
+
+            <div class="receipt">
+                <div class="receipt-row">
+                    <span>상품명</span>
+                    <span>{{ product_name | default('프리미엄 구독 (월간)') }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>결제일</span>
+                    <span>{{ payment_date | default('2024-01-15') }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>결제 수단</span>
+                    <span>{{ payment_method | default('신용카드 (****1234)') }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>결제 금액</span>
+                    <span>{{ amount | default('₩29,900') }}</span>
+                </div>
+            </div>
+
+            <p>결제 내역이 정확하지 않거나 본인이 결제하지 않은 경우:</p>
+            <p style="text-align: center;">
+                <a href="{{ tracking_url }}" class="button">결제 취소 요청</a>
+            </p>
+        </div>
+        <div class="footer">
+            <p>결제 관련 문의: support@example.com</p>
+        </div>
+    </div>
+    <img src="{{ pixel_url }}" width="1" height="1" style="display:none;" alt="">
+</body>
+
+</html>
