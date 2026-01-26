@@ -1,100 +1,89 @@
 import os
-import json
 import asyncio
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from datetime import datetime
 
-# Load environment variables from the root .env file
+# Import modules
+from rss_fetcher import fetch_security_news
+from ai_analyzer import analyze_threat, get_embedding
+
+# Load environment variables
 load_dotenv()
 
-# Supabase Configuration
-# Note: Ensure SUPABASE_URL and SUPABASE_KEY are set in your .env file
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    # Fallback for DATABASE_URL if user used the .env.example literally
-    # But supabase-py needs URL and Key, not Connection String.
-    # We will warn the user if these are missing.
-    print("Error: SUPABASE_URL and SUPABASE_KEY are required in .env file.")
-    print("Please populate them from your Supabase project settings.")
-    # For the sake of the script not crashing immediately if just checking imports:
-    # exit(1)
+# Default RSS Feeds (can be moved to env or DB)
+DEFAULT_FEEDS = [
+    "https://feeds.feedburner.com/TheHackersNews",
+    "https://www.kisa.or.kr/rss/kr/201.xml", # KISA Security Notice
+    "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss"
+]
 
 def get_supabase_client() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("Supabase credentials missing.")
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Mock Data Generator
-def generate_mock_threats() -> List[Dict[str, Any]]:
-    return [
-        {
-            "source_url": "https://example.com/phishing-alert-001",
-            "raw_text": "Warning: Your account will be suspended. Click here to verify.",
-            "analysis_json": {
-                "type": "Credential Harvesting",
-                "keywords": ["account suspension", "verify", "urgent"],
-                "lure_text": "Your account will be suspended."
-            },
-            # Dummy embedding for pgvector (assuming 1536 dim if using openai, or whatever the schema uses. 
-            # If schema allows null or has specific dim, we might need to adjust.
-            # For now, we'll try to omit it or pass a simplified list if allowed, 
-            # but usually vector fields require specific dimensions.
-            # Checking DATA_MODEL.md, it says "embedding (Vector)". 
-            # We will try to insert without embedding first or use a placeholder if required.
-            # "embedding": [0.0] * 1536 
-        },
-        {
-            "source_url": "https://example.com/fake-login-netflix",
-            "raw_text": "Netflix Payment Failed. Update your payment details immediately.",
-            "analysis_json": {
-                "type": "Payment Fraud",
-                "keywords": ["netflix", "payment failed", "update details"],
-                "lure_text": "Update your payment details"
-            }
-        },
-        {
-            "source_url": "https://example.com/delivery-scam",
-            "raw_text": "CJ Logistics: Package delivery failed due to wrong address.",
-            "analysis_json": {
-                "type": "Smishing",
-                "keywords": ["delivery", "CJ Logistics", "wrong address"],
-                "lure_text": "Package delivery failed"
-            }
-        }
-    ]
-
-async def insert_threats(client: Client, threats: List[Dict[str, Any]]):
-    print(f"Attempting to insert {len(threats)} mock threats...")
+async def process_feeds(client: Client):
+    print("Starting Threat Collection...")
     
-    for threat in threats:
+    # 1. Fetch Articles
+    feeds = os.getenv("RSS_FEED_URLS", "").split(",")
+    feeds = [f.strip() for f in feeds if f.strip()] or DEFAULT_FEEDS
+    
+    articles = fetch_security_news(feeds)
+    print(f"Fetched {len(articles)} articles.")
+    
+    for article in articles:
+        # TODO: Check if article.source_url already exists to avoid duplicates
+        # For simple MVP, we rely on duplicate checks or just proceed.
+        # Ideally: response = client.table("threat_cases").select("id").eq("source_url", article["source_url"]).execute()
+        
+        print(f"Analyzing: {article['title']}...")
+        
+        # 2. AI Analysis
+        analysis = analyze_threat(article["raw_text"])
+        
+        if not analysis.get("is_threat", True): # Default to True if key missing, but here logical default is False if returned explicitly
+             print(f"Skipping (Not a threat): {article['title']}")
+             continue
+             
+        if analysis.get("is_threat") is False:
+             print(f"Skipping (Not a threat): {article['title']}")
+             continue
+
+        # 3. Embedding
+        embedding_text = analysis.get("embedding_text", article["title"])
+        embedding_vector = get_embedding(embedding_text)
+        
+        # 4. Insert into DB
         try:
-            # We add 'collected_at' here or let DB handle it if default is now()
-            current_time = datetime.utcnow().isoformat()
             data = {
-                "source_url": threat["source_url"],
-                "raw_text": threat["raw_text"],
-                "analysis_json": threat["analysis_json"],
-                "collected_at": current_time
-                # "embedding": threat.get("embedding") # omitted for MVP mock
+                "source_url": article["source_url"],
+                "raw_text": article["raw_text"],
+                "analysis_json": analysis,
+                "embedding": embedding_vector,
+                "collected_at": datetime.utcnow().isoformat()
             }
             
-            response = client.table("threat_cases").insert(data).execute()
-            print(f"Successfully inserted: {threat['source_url']}")
+            # Using upsert based on source_url if we had a unique constraint, but we don't on schema v1.
+            # We'll just insert.
+            client.table("threat_cases").insert(data).execute()
+            print(f"Saved Threat: {article['title']}")
+            
         except Exception as e:
-            print(f"Failed to insert {threat['source_url']}: {e}")
+            print(f"DB Insert Error: {e}")
 
 async def main():
     try:
         client = get_supabase_client()
-        mock_threats = generate_mock_threats()
-        await insert_threats(client, mock_threats)
-        print("Mock data insertion complete.")
+        await process_feeds(client)
+        print("Collection Complete.")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"Fatal Error: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
