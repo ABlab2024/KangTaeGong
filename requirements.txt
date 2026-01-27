@@ -1,13 +1,42 @@
-asyncpg
-beautifulsoup4
+# ====================
+# Core Framework
+# ====================
 fastapi
-feedparser
-google-generativeai
-jinja2
-openai
-pgvector
+uvicorn[standard]
+pydantic
 pydantic-settings
-python-dotenv
-sqlalchemy
+
+# ====================
+# Database
+# ====================
+asyncpg
+sqlalchemy[asyncio]
+pgvector
 supabase
-uvicorn
+
+# ====================
+# Authentication & Security
+# ====================
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+
+# ====================
+# AI / LLM
+# ====================
+google-genai
+openai
+json-repair
+
+# ====================
+# Data Collection
+# ====================
+feedparser
+beautifulsoup4
+httpx
+
+# ====================
+# Templating & Utilities
+# ====================
+jinja2
+python-dotenv
