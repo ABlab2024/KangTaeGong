@@ -1,4 +1,8 @@
-"""Simulation API endpoints for phishing training."""
+"""Simulation API endpoints for phishing training.
+
+NOTE: This version is simplified to match actual DB schema.
+DB columns: id, user_id, threat_id, event_type, created_at
+"""
 from typing import Any, Optional
 from uuid import UUID
 from datetime import datetime
@@ -6,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from app.db.session import get_db
 from app.models.user import User
@@ -25,8 +29,8 @@ router = APIRouter()
 
 class SimulationRequest(BaseModel):
     """Request model for sending phishing simulation."""
-    scenario: str = "password_reset"  # password_reset, payment_receipt, delivery_notice
-    threat_case_id: Optional[UUID] = None
+    scenario: str = "password_reset"
+    threat_id: Optional[UUID] = None
     custom_subject: Optional[str] = None
     custom_message: Optional[str] = None
 
@@ -35,7 +39,7 @@ class SimulationResponse(BaseModel):
     """Response model for simulation result."""
     success: bool
     message: str
-    tracking_token: Optional[str] = None
+    simulation_id: Optional[str] = None
 
 
 @router.get("/simulation/scenarios")
@@ -61,7 +65,7 @@ async def send_simulation(
     if not scenario:
         raise HTTPException(status_code=400, detail="Invalid scenario")
     
-    # Generate tracking token
+    # Generate tracking token for email links
     tracking_token = generate_tracking_token()
     
     # Get recipient name from email
@@ -89,18 +93,17 @@ async def send_simulation(
         # Log the simulation
         log = SimulationLog(
             user_id=current_user.id,
-            threat_id=request.threat_case_id,
-            event_type="SENT",
-            tracking_token=tracking_token,
-            metadata={"scenario": request.scenario}
+            threat_id=request.threat_id,
+            event_type="SENT"
         )
         db.add(log)
         await db.commit()
+        await db.refresh(log)
         
         return SimulationResponse(
             success=True,
             message="Simulation email sent successfully",
-            tracking_token=tracking_token
+            simulation_id=str(log.id)
         )
     else:
         return SimulationResponse(
@@ -115,30 +118,12 @@ async def track_click(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """Track when a user clicks the phishing link."""
+    """Track when a user clicks the phishing link.
     
-    # Find the original simulation log
-    result = await db.execute(
-        select(SimulationLog).where(SimulationLog.tracking_token == token)
-    )
-    original_log = result.scalars().first()
-    
-    if original_log:
-        # Log the click event
-        click_log = SimulationLog(
-            user_id=original_log.user_id,
-            threat_id=original_log.threat_id,
-            event_type="CLICKED",
-            tracking_token=token,
-            metadata={
-                "ip": request.client.host if request.client else "unknown",
-                "user_agent": request.headers.get("user-agent", "unknown")
-            }
-        )
-        db.add(click_log)
-        await db.commit()
-    
-    # Redirect to training page
+    Note: Without metadata column, tracking is limited.
+    In production, consider adding a tracking_tokens table.
+    """
+    # Just redirect to training page - full tracking needs schema update
     return RedirectResponse(
         url="/training-complete?clicked=true",
         status_code=302
@@ -150,35 +135,12 @@ async def track_open(
     token: str,
     db: AsyncSession = Depends(get_db)
 ) -> Response:
-    """Track when a user opens the email (via tracking pixel)."""
+    """Track when a user opens the email (via tracking pixel).
     
-    result = await db.execute(
-        select(SimulationLog).where(SimulationLog.tracking_token == token)
-    )
-    original_log = result.scalars().first()
-    
-    if original_log:
-        # Check if OPENED was already logged
-        opened_result = await db.execute(
-            select(SimulationLog).where(
-                SimulationLog.tracking_token == token,
-                SimulationLog.event_type == "OPENED"
-            )
-        )
-        if not opened_result.scalars().first():
-            open_log = SimulationLog(
-                user_id=original_log.user_id,
-                threat_id=original_log.threat_id,
-                event_type="OPENED",
-                tracking_token=token,
-                metadata={}
-            )
-            db.add(open_log)
-            await db.commit()
-    
+    Note: Without metadata column, tracking is limited.
+    """
     # Return 1x1 transparent PNG
     PIXEL = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
-    
     return Response(content=PIXEL, media_type="image/png")
 
 

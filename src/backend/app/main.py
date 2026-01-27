@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.endpoints import threats, auth, users, simulation
+from app.api.v1.endpoints import threats, auth, users, simulation, survey
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
@@ -19,9 +19,10 @@ def root():
     return {"message": "KangTaeGong API is running"}
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
-app.include_router(users.router, prefix="/api/v1", tags=["users"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(threats.router, prefix="/api/v1", tags=["threats"])
 app.include_router(simulation.router, prefix="/api/v1", tags=["simulation"])
+app.include_router(survey.router, prefix="/api/v1/survey", tags=["survey"])
 
 if __name__ == "__main__":
     import uvicorn

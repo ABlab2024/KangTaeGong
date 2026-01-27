@@ -20,7 +20,12 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 DEFAULT_FEEDS = [
     "https://feeds.feedburner.com/TheHackersNews",
     "https://www.kisa.or.kr/rss/kr/201.xml", # KISA Security Notice
-    "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss"
+    "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss",
+    "http://www.boannews.com/media/news_rss.xml?mkind=1",
+    "http://www.boannews.com/media/news_rss.xml?mkind=2",
+    "http://www.boannews.com/media/news_rss.xml?mkind=4",
+    "http://www.boannews.com/media/news_rss.xml?mkind=5",
+    "http://www.boannews.com/media/news_rss.xml?kind=1"
 ]
 
 def get_supabase_client() -> Client:

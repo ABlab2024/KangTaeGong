@@ -17,11 +17,17 @@ export default function Signup() {
 
     const registerMutation = useMutation({
         mutationFn: async () => {
-            return await authApi.register(formData.email, formData.password, formData.fullName);
+            // 회원가입
+            await authApi.register(formData.email, formData.password, formData.fullName);
+            // 자동 로그인
+            const loginResult = await authApi.login(formData.email, formData.password);
+            return loginResult;
         },
-        onSuccess: () => {
-            alert('가입 성공! 로그인해주세요.');
-            navigate('/login');
+        onSuccess: (data) => {
+            // JWT 토큰 저장
+            localStorage.setItem('access_token', data.access_token);
+            // 온보딩 페이지로 이동
+            navigate('/onboarding');
         },
         onError: (err) => {
             alert('가입 실패: ' + err.message);

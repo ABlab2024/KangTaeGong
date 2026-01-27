@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { authApi } from '@/api/auth';
+import { surveyApi } from '@/api/survey';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
@@ -21,8 +22,19 @@ export default function Login() {
             localStorage.setItem('access_token', data.access_token);
             return data;
         },
-        onSuccess: () => {
-            navigate('/dashboard');
+        onSuccess: async () => {
+            try {
+                // 온보딩 상태 확인
+                const status = await surveyApi.checkOnboardingStatus();
+                if (status.completed) {
+                    navigate('/dashboard');
+                } else {
+                    navigate('/onboarding');
+                }
+            } catch {
+                // 상태 확인 실패 시 온보딩으로 이동
+                navigate('/onboarding');
+            }
         },
         onError: (err) => {
             console.error(err);
