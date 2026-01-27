@@ -1,9 +1,10 @@
 import os
 import asyncio
+import time
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from datetime import datetime
+from datetime import datetime, UTC
 
 # Import modules
 from rss_fetcher import fetch_security_news
@@ -44,8 +45,9 @@ async def process_feeds(client: Client):
         
         print(f"Analyzing: {article['title']}...")
         
-        # 2. AI Analysis
+        # 2. AI Analysis (with rate limiting)
         analysis = analyze_threat(article["raw_text"])
+        time.sleep(15)  # Rate limiting: 8 seconds between API calls
         
         if not analysis.get("is_threat", True): # Default to True if key missing, but here logical default is False if returned explicitly
              print(f"Skipping (Not a threat): {article['title']}")
@@ -66,7 +68,7 @@ async def process_feeds(client: Client):
                 "raw_text": article["raw_text"],
                 "analysis_json": analysis,
                 "embedding": embedding_vector,
-                "collected_at": datetime.utcnow().isoformat()
+                "collected_at": datetime.now(UTC).isoformat()
             }
             
             # Using upsert based on source_url if we had a unique constraint, but we don't on schema v1.
