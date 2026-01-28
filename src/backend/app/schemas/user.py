@@ -1,7 +1,8 @@
 from typing import Optional, List, Any
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+import json
+from pydantic import BaseModel, EmailStr, field_validator
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -19,6 +20,16 @@ class UserInDBBase(UserBase):
     preferences: List[str]
     security_score: int
     created_at: datetime
+
+    @field_validator('preferences', mode='before')
+    @classmethod
+    def parse_preferences(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        return v
 
     class Config:
         from_attributes = True

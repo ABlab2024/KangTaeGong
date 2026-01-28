@@ -41,13 +41,10 @@ export default function Landing() {
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                         <Link to="/login">
                             <Button size="lg" className="w-full sm:w-auto gap-2">
-                                무료로 시작하기
+                                시작하기
                                 <ChevronRight className="w-4 h-4" />
                             </Button>
                         </Link>
-                        <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                            작동 원리 보기
-                        </Button>
                     </div>
                 </motion.div>
 

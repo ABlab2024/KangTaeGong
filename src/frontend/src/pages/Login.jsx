@@ -1,50 +1,50 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { authApi } from '@/api/auth';
-import { surveyApi } from '@/api/survey';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
-import { Shield, Fingerprint, Loader2 } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Shield, Mail, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Login() {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
     const loginMutation = useMutation({
         mutationFn: async () => {
-            const data = await authApi.login(email, password);
+            const data = await authApi.loginWithEmail(email);
             // Save token
             localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('user_email', data.email);
             return data;
         },
-        onSuccess: async () => {
-            try {
-                // 온보딩 상태 확인
-                const status = await surveyApi.checkOnboardingStatus();
-                if (status.completed) {
-                    navigate('/dashboard');
-                } else {
-                    navigate('/onboarding');
-                }
-            } catch {
-                // 상태 확인 실패 시 온보딩으로 이동
+        onSuccess: (data) => {
+            // Navigate based on onboarding status
+            if (data.onboarding_completed) {
+                navigate('/dashboard');
+            } else {
                 navigate('/onboarding');
             }
         },
         onError: (err) => {
             console.error(err);
-            setError('로그인 실패. 이메일과 비밀번호를 확인해주세요.');
+            setError('로그인에 실패했습니다. 다시 시도해주세요.');
         },
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         setError('');
+
+        // Basic email validation
+        if (!email || !email.includes('@')) {
+            setError('올바른 이메일 주소를 입력해주세요.');
+            return;
+        }
+
         loginMutation.mutate();
     };
 
@@ -67,30 +67,26 @@ export default function Login() {
                             <Shield className="w-8 h-8 text-neon-cyan" />
                         </div>
                         <CardTitle>보안 시스템 접근</CardTitle>
-                        <p className="text-sm text-gray-400">KangTaeGong Agent에 접속합니다.</p>
+                        <p className="text-sm text-gray-400">
+                            이메일을 입력하여 시작하세요.<br />
+                            처음 방문하시면 자동으로 가입됩니다.
+                        </p>
                     </CardHeader>
 
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
-                                <Input
-                                    type="email"
-                                    placeholder="name@example.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="bg-black/40 border-white/10 focus:border-neon-cyan/50"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="bg-black/40 border-white/10 focus:border-neon-cyan/50"
-                                    required
-                                />
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                    <Input
+                                        type="email"
+                                        placeholder="name@example.com"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="bg-black/40 border-white/10 focus:border-neon-cyan/50 pl-10"
+                                        required
+                                    />
+                                </div>
                             </div>
 
                             {error && (
@@ -108,18 +104,17 @@ export default function Login() {
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                 ) : (
                                     <div className="flex items-center gap-2">
-                                        <Fingerprint className="w-5 h-5" />
-                                        <span>인증 시작</span>
+                                        <Mail className="w-5 h-5" />
+                                        <span>시작하기</span>
                                     </div>
                                 )}
                             </Button>
                         </form>
+
+                        <p className="text-xs text-gray-500 text-center mt-6">
+                            시작하기 버튼을 클릭하면 서비스 이용약관에 동의하는 것으로 간주됩니다.
+                        </p>
                     </CardContent>
-                    <CardFooter className="flex justify-center pb-8">
-                        <Link to="/signup" className="text-sm text-gray-500 hover:text-neon-cyan transition-colors">
-                            계정이 없으신가요? 등록하기
-                        </Link>
-                    </CardFooter>
                 </Card>
             </motion.div>
         </div>

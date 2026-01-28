@@ -7,11 +7,11 @@ All source code must be located under the `src/` directory.
 - **`src/collector/`**: Standalone Python scripts. Runs independently to crawl data and save to DB.
 
 ## 2. Tech Stack (MVP Free Tier)
-- **AI Model**: `GPT-4.1.-nano` ONLY.
+- **AI Model**: `gemini-2.5-flash` ONLY.
 - **Frontend**: React, TailwindCSS, Axios -> Deploy on Vercel.
 - **Backend**: Python FastAPI, Uvicorn, SQLAlchemy -> Deploy on Render.
 - **Collector**: Python script (BeautifulSoup, FeedParser) -> Scheduled execution (Cron or manual).
-- **Database**: Supabase (PostgreSQL + pgvector).
+- **Database**: SQLite.
 
 ## 3. Coding Conventions
 - **Shared Config**: Use a single `.env` file at the root. Both `backend` and `collector` read `DATABASE_URL` from here.

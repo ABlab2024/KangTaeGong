@@ -20,7 +20,7 @@ from app.api import deps
 from app.services.email_service import (
     generate_tracking_token,
     render_phishing_email,
-    send_phishing_email,
+    email_service,
     PHISHING_SCENARIOS
 )
 
@@ -81,12 +81,13 @@ async def send_simulation(
     
     subject = request.custom_subject or scenario["subject"]
     
-    # Send email
-    success = await send_phishing_email(
+    # Send email using EmailService class
+    success = await email_service.send_phishing_email(
         to_email=current_user.email,
         subject=subject,
-        html_content=html_content,
-        from_name=scenario["from_name"]
+        body_html=html_content,
+        sender_name=scenario["from_name"],
+        simulation_id=tracking_token
     )
     
     if success:

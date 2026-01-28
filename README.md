@@ -10,23 +10,57 @@
 
 ---
 
-## 2. 주요 기능
+## 2. 시스템 작동 플로우 (System Flow)
 
-1.  **Threat Collector (위협 수집기)**
-    - `GPT-4.1.-nano` 모델을 활용하여 보안 뉴스 및 커뮤니티에서 피싱 사례 수집
-    - 수집된 데이터를 분석하여 구조화된(JSON) 위협 정보로 변환 및 DB 적재
-2.  **Web Dashboard (웹 대시보드)**
-    - 사용자 가입 및 로그인, 보안 취향 설문 조사
-    - 개인별 보안 점수 리포트 시각화 제공
-3.  **Simulation Engine (모의 훈련 엔진)**
-    - 수집된 위협 사례와 사용자 정보를 결합하여 맞춤형 피싱 이메일 시나리오 생성
-    - SMTP를 이용한 훈련용 이메일 발송
-4.  **Behavior Tracking (행동 추적)**
-    - 가짜 피싱 사이트 내 클릭, 체류 시간 등 사용자 반응 로깅 및 분석
+전체 시스템은 크게 **수집(Collector)**, **분석/관리(Backend)**, **사용자/관리자(Frontend)** 세 가지 축으로 작동합니다.
+
+1.  **위협 정보 수집 (Threat Collection)**
+    -   `Collector`가 보안 뉴스(RSS), 커뮤니티 등에서 최신 피싱 사례를 수집합니다.
+    -   OpenAI GPT 모델이 수집된 비정형 데이터를 분석하여 피싱 유형, 위험도, 주요 키워드를 추출 및 구조화합니다.
+    -   구조화된 데이터는 Supabase DB에 저장되어 시나리오 생성의 기초 데이터로 활용됩니다.
+
+2.  **사용자 분석 (User Profiling)**
+    -   사용자는 회원가입 후 **온보딩 설문(Onboarding Survey)**을 진행합니다.
+    -   연령대, 성별, 관심사, 디지털 이용 습관 등을 분석하여 개인별 **보안 취약점**을 도출합니다.
+
+3.  **모의 훈련 및 피드백 (Simulation & Feedback)**
+    -   관리자(Admin)는 수집된 위협 정보와 사용자 프로필을 매칭하여 맞춤형 피싱 시뮬레이션(이메일 등)을 발송합니다.
+    -   사용자의 반응(열람, 클릭, 정보 입력 등)은 실시간으로 추적(Tracking)됩니다.
+    -   훈련 결과는 **대시보드**에 반영되어 사용자의 보안 점수(Defense Rate)와 랭킹이 갱신됩니다.
 
 ---
 
-## 3. 기술 스택 (Zero-Cost Stratgey)
+## 3. 주요 기능 및 페이지 설명
+
+### 👤 사용자 페이지 (User Side)
+
+**1. 대시보드 (Dashboard)**
+-   **나의 보안 점수**: 전체 사용자 및 동일 연령대 대비 나의 방어율 랭킹을 시각적으로 제공합니다.
+-   **취약점 분석 리포트**: 온보딩 데이터를 바탕으로 내가 어떤 유형의 피싱(예: 대출 사기, 사칭, 악성 앱 등)에 취약한지 AI가 분석한 결과를 보여줍니다.
+-   **최신 보안 뉴스**: 수집기가 가져온 최신 피싱 뉴스를 실시간으로 확인할 수 있습니다.
+
+**2. 온보딩 (Onboarding)**
+-   최초 로그인 시 진행되는 설문조사 페이지입니다. 사용자의 환경과 성향을 파악하여 맞춤형 훈련을 설계하는 데 사용됩니다.
+
+**3. 취약점 상세 분석 (Vulnerability Analysis)**
+-   대시보드의 요약 정보를 넘어, AI가 분석한 상세한 취약점 리포트와 행동 지침을 제공합니다.
+
+### 🛡️ 관리자 페이지 (Admin Side)
+
+**1. 관리자 대시보드 (Admin Dashboard)**
+-   전체 가입자 수, 진행된 시뮬레이션 횟수, 평균 방어율 등 서비스 전체 현황을 한눈에 볼 수 있습니다.
+-   연령대별, 성별별 피싱 취약 통계를 그래프/수치로 제공합니다.
+
+**2. 사용자 관리 (User Management)**
+-   등록된 사용자 목록을 조회하고, 각 사용자의 보안 점수와 온보딩 완료 여부를 확인합니다.
+
+**3. 시나리오 및 시뮬레이션 관리**
+-   자동 생성되거나 등록된 피싱 시나리오를 미리보기 할 수 있습니다. (난이도, 주제 등)
+-   **전체 발송 기능**: 버튼 클릭 한 번으로 대상 사용자들에게 시뮬레이션 이메일을 일괄 발송할 수 있습니다.
+
+---
+
+## 4. 기술 스택 (Zero-Cost Strategy)
 
 비용 효율 인프라 구성을 위해 Free Tier를 적극 활용합니다.
 
@@ -34,209 +68,100 @@
 -   **Backend**: Python FastAPI (Hosting: Render Free Tier)
 -   **Collector**: Python Scripts (BeautifulSoup, FeedParser)
 -   **Database**: Supabase (PostgreSQL + pgvector)
--   **AI Model**: GPT-4.1.-nano (Cost-effective)
+-   **AI Model**: GPT-4.1.-nano / GPT-4o-mini (Cost-effective)
 
 ---
 
-## 4. 프로젝트 구조
-
-```text
-/
-├── docs/               # 기획 및 설계 문서
-│   ├── 00_MASTER_PLAN.md
-│   ├── 01_DATA_MODEL.md
-│   ├── 02_TECH_STACK_RULES.md
-│   └── 03_ROADMAP.md
-├── src/
-│   ├── backend/        # FastAPI 백엔드 서버
-│   ├── frontend/       # React 프론트엔드 웹
-│   └── collector/      # 위협 정보 수집 스크립트
-├── taegong-venv/       # Python 가상환경
-├── requirements.txt    # 의존성 패키지 목록
-└── README.md           # 프로젝트 설명 문서
-```
-
----
-
-## 5. 설치 및 실행 가이드 (Local Development)
+## 5. 설치 및 실행 가이드 (Usage Guide)
 
 ### 전제 조건
-- **Python 3.10+** (가상환경 사용 권장)
-- **Node.js 18+** & **npm** (Frontend 실행용)
-- **Supabase 계정** 및 프로젝트 설정 완료
-- **OpenAI API Key** (위협 분석용)
+-   **Python 3.10+**, **Node.js 18+**, **Supabase 계정**, **OpenAI API Key**
 
-### 1단계: 저장소 클론 및 환경 설정
+### 1단계: 환경 설정 및 설치
 
 ```bash
-# 1. 저장소 클론
+# 1. 저장소 클론 및 이동
 git clone <repository-url>
 cd KangTaeGong
 
 # 2. Python 가상환경 생성 및 활성화
 python -m venv taegong-venv
+source taegong-venv/bin/activate  # Mac/Linux
+# taegong-venv\Scripts\activate   # Windows
 
-# Linux/Mac
-source taegong-venv/bin/activate
-
-# Windows (CMD)
-taegong-venv\Scripts\activate
-
-# Windows (PowerShell)
-.\taegong-venv\Scripts\Activate.ps1
-
-# 3. Python 의존성 설치 (전체)
+# 3. Backend/Collector 의존성 설치
 pip install -r requirements.txt
+
+# 4. Frontend 의존성 설치
+cd src/frontend
+npm install
+cd ../..
 ```
 
-### 2단계: 환경 변수 설정
+### 2단계: 환경 변수(.env) 설정
 
-최상위 디렉토리에 `.env` 파일을 생성하고 아래 템플릿을 참고하여 값을 입력합니다.
+프로젝트 루트에 `.env` 파일을 생성하고 필요한 키 값을 입력하세요. (DB URL, OpenAI Key, SMTP 설정 등)
 
-```ini
-# ============================================
-# Database (Supabase PostgreSQL)
-# ============================================
-# Format: postgresql+asyncpg://user:password@host:port/dbname
-DATABASE_URL=postgresql+asyncpg://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+### 3단계: 애플리케이션 실행
 
-# Supabase Client Config
-SUPABASE_URL=https://[PROJECT_REF].supabase.co
-SUPABASE_KEY=your_supabase_anon_key
+개발 환경에서는 Backend와 Frontend를 각각 실행해야 합니다.
 
-# ============================================
-# AI Model (OpenAI)
-# ============================================
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx
-
-# ============================================
-# Messaging (Email - Gmail SMTP)
-# ============================================
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your_email@gmail.com
-# Gmail의 경우 앱 비밀번호 사용 (로그인 비밀번호 X)
-SMTP_PASSWORD=your_app_password
-EMAIL_FROM=your_email@gmail.com
-
-# ============================================
-# Security (FastAPI JWT)
-# ============================================
-# 아래 명령어로 시크릿 키 생성: openssl rand -hex 32
-SECRET_KEY=your_super_secret_key_here
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
-
-### 3단계: 모듈별 실행
-
-#### 🔹 Backend (API 서버) - 포트 8002
-
+**Terminal 1 (Backend)**
 ```bash
-# 가상환경 활성화 후 실행
+# 가상환경 활성화 상태에서
 cd src/backend
-
-# 방법 1: uvicorn 직접 실행
 uvicorn app.main:app --reload --port 8002
-
-# 방법 2: main.py 실행
-python -m app.main
 ```
+-   Backend Server: `http://localhost:8002`
+-   API Docs: `http://localhost:8002/docs`
 
-**실행 확인**: http://localhost:8002 접속 시 아래 응답 확인
-```json
-{"message": "KangTaeGong API is running"}
-```
-
-**API 문서**: http://localhost:8002/docs (Swagger UI)
-
----
-
-#### 🔹 Frontend (웹 클라이언트) - 포트 5173
-
+**Terminal 2 (Frontend)**
 ```bash
 cd src/frontend
-
-# 의존성 설치 (최초 1회)
-npm install
-
-# 개발 서버 실행
 npm run dev
 ```
+-   Web Client: `http://localhost:5173`
 
-**실행 확인**: http://localhost:5173 접속
+---
 
-**빌드 (프로덕션용)**:
-```bash
-npm run build
-npm run preview  # 빌드 결과 미리보기
+## 6. 사용 방법 (User Manual)
+
+### 일반 사용자 (User)
+1.  브라우저에서 `http://localhost:5173`으로 접속합니다.
+2.  **회원가입(Sign Up)** 페이지에서 계정을 생성합니다.
+3.  로그인 후, **온보딩 설문**을 완료합니다.
+4.  **대시보드**에서 자신의 랭킹과 보안 뉴스를 확인합니다.
+5.  (시뮬레이션 발송 시) 이메일 등으로 도착한 훈련 메시지를 확인하고 절차에 따릅니다.
+
+### 관리자 (Admin)
+1.  브라우저에서 `http://localhost:5173/admin`으로 접속합니다.
+2.  관리자 계정으로 로그인합니다. (DB나 환경변수에서 설정된 관리자 계정 사용)
+3.  **사용자 탭**에서 가입된 사용자 현황을 모니터링합니다.
+4.  **시뮬레이션 발송** 버튼을 눌러 훈련을 시작합니다.
+5.  **통계 탭**에서 훈련 결과와 취약점 통계를 분석합니다.
+
+---
+
+## 7. 프로젝트 구조
+
+```text
+/
+├── docs/               # 기획 및 설계 문서
+├── src/
+│   ├── backend/        # FastAPI 서버 (API, DB 모델, 로직)
+│   ├── frontend/       # React 웹 어플리케이션 (Pages, Components)
+│   └── collector/      # 위협 정보 수집 및 AI 분석 스크립트
+├── taegong-venv/       # Python 가상환경
+├── requirements.txt    # Backend 의존성
+└── README.md           # 프로젝트 문서
 ```
 
 ---
 
-#### 🔹 Collector (위협 수집기)
+## 8. 개발 로드맵
 
-```bash
-# 프로젝트 루트에서 실행 (가상환경 활성화 필수)
-python src/collector/collector.py
-```
-
-> ⚠️ **주의**: Collector는 GitHub Actions를 통해 Cron으로 자동 실행되도록 설계되어 있습니다. 로컬 실행은 테스트 용도로만 사용하세요.
-
----
-
-### 4단계: 전체 시스템 동시 실행 (개발 환경)
-
-개발 시 **Backend**와 **Frontend**를 동시에 실행해야 합니다. 각각 별도의 터미널에서 실행하세요.
-
-| 터미널 | 명령어 | 포트 |
-|:---:|:---|:---:|
-| 터미널 1 | `cd src/backend && uvicorn app.main:app --reload --port 8002` | 8002 |
-| 터미널 2 | `cd src/frontend && npm run dev` | 5173 |
-
----
-
-### 트러블슈팅
-
-| 문제 | 해결 방법 |
-|:---|:---|
-| `DATABASE_URL` 환경변수 오류 | `.env` 파일이 프로젝트 루트에 있는지 확인 |
-| Port 8002 이미 사용 중 | `--port` 옵션으로 다른 포트 지정 또는 기존 프로세스 종료 |
-| CORS 오류 | Backend의 `main.py`에서 Frontend URL이 `allow_origins`에 포함되어 있는지 확인 |
-| npm 의존성 오류 | `rm -rf node_modules && npm install` 후 재시도 |
-
----
-
-## 6. 개발 로드맵 및 진행 상황
-
-이 프로젝트는 단계별(Phase) 접근 방식을 따릅니다.
-
-### Phase 1: Foundation & DB (✅ 완료)
-- [x] 프로젝트 디렉토리 구조 설계
-- [x] Supabase DB 스키마 설계 및 적용 (`docs/01_DATA_MODEL.md` 참고)
-
-### Phase 2: Threat Collector (✅ 완료)
-- [x] 수집기 환경 설정 (`src/collector`)
-- [x] RSS/Web 크롤러 구현 (`rss_fetcher.py`)
-- [x] GPT 활용 위협 데이터 분석 파이프라인 구축 (`ai_analyzer.py`)
-- [x] Supabase 데이터 적재 연동
-
-### Phase 3: Backend API (✅ 완료)
-- [x] FastAPI 기본 골격 구성 (`src/backend/app/main.py`)
-- [x] 사용자 인증 API (JWT 기반 로그인/회원가입)
-- [x] 위협 정보 조회 API (`/api/v1/threats`)
-- [x] 시뮬레이션 API (`/api/v1/simulation`)
-
-### Phase 4: Frontend Web (✅ 완료)
-- [x] Vite + React + TailwindCSS 프로젝트 초기화
-- [x] 사용자 인증 UI (로그인/회원가입)
-- [x] 대시보드 UI 구현
-- [x] 백엔드 API 연동
-
-### Phase 5: Integration & Deployment (🚧 진행 중)
-- [ ] GitHub Actions를 통한 Collector Cron Job 구성
-- [ ] Render Free Tier 백엔드 배포
-- [ ] Vercel 프론트엔드 배포
-- [ ] 통합 테스트 및 버그 수정
-
-상세한 개발 계획은 `docs/03_ROADMAP.md` 문서를 참고하십시오.
+현재 **Phase 5: Integration & Deployment** 단계 진행 중입니다.
+-   [x] 핵심 기능 구현 (Collector, Backend, Frontend)
+-   [x] MVP 레벨 연동 (User Flow, Admin Dashboard)
+-   [ ] GitHub Actions Cron Job 최적화
+-   [ ] 클라우드 배포 (Render, Vercel)

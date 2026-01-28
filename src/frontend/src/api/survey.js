@@ -18,6 +18,25 @@ export const surveyApi = {
     },
 
     /**
+     * LLM 취향 증강 요청
+     */
+    augmentPreferences: async (currentPreferences, iteration) => {
+        const response = await client.post('/survey/augment', {
+            current_preferences: currentPreferences,
+            iteration: iteration,
+        });
+        return response.data;
+    },
+
+    /**
+     * 취약점 분석 결과 조회
+     */
+    getVulnerabilityAnalysis: async () => {
+        const response = await client.get('/survey/vulnerability');
+        return response.data;
+    },
+
+    /**
      * 온보딩 완료 여부 확인
      */
     checkOnboardingStatus: async () => {

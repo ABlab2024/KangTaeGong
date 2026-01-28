@@ -1,2 +1,10 @@
 taegong-venv/
 .env
+src/backend/app/api/v1/endpoints/__pycache__/*
+src/backend/app/core/__pycache__/*
+src/backend/app/db/__pycache__/*
+src/backend/app/models/__pycache__/*
+src/backend/app/schemas/__pycache__/*
+src/backend/app/services/__pycache__/*
+src/backend/app/utils/__pycache__/*
+src/backend/app/__pycache__/*
