@@ -72,6 +72,7 @@ class TrainingSchedule(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     scenario_id = Column(String(36), ForeignKey("phishing_scenarios.id"), nullable=True)
+    title = Column(String(200), nullable=True)  # 훈련 제목
     
     scheduled_date = Column(DateTime, nullable=False)
     is_sent = Column(Boolean, default=False)

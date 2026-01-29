@@ -80,4 +80,41 @@ export const adminApi = {
         const response = await client.get('/admin/next-training-period');
         return response.data;
     },
+
+    /**
+     * 시나리오 상세 조회
+     */
+    getScenarioDetail: async (scenarioId) => {
+        const response = await client.get(`/admin/scenario/${scenarioId}`);
+        return response.data;
+    },
+
+    /**
+     * 시나리오 수정
+     */
+    updateScenario: async (scenarioId, data) => {
+        const response = await client.put(`/admin/scenario/${scenarioId}`, data);
+        return response.data;
+    },
+
+    /**
+     * 훈련 스케줄 생성
+     */
+    createSchedule: async (userIds, scenarioId, scheduledDate, title = null) => {
+        const response = await client.post('/admin/schedule', {
+            user_ids: userIds,
+            scenario_id: scenarioId,
+            scheduled_date: scheduledDate,
+            title: title,
+        });
+        return response.data;
+    },
+
+    /**
+     * 시나리오별 통계 조회
+     */
+    getScenarioStats: async () => {
+        const response = await client.get('/admin/stats/scenario');
+        return response.data;
+    },
 };

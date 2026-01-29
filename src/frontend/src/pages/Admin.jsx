@@ -8,16 +8,34 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
     Users, Calendar, Activity, Shield, Lock, Mail, Loader2,
-    AlertTriangle, TrendingUp, Play, RefreshCw, Eye
+    AlertTriangle, TrendingUp, Play, RefreshCw, Eye, X, Edit3, Save, Plus, Check
 } from 'lucide-react';
 
 export default function Admin() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loginError, setLoginError] = useState('');
     const [activeTab, setActiveTab] = useState('users');
+
+    // Scenario Detail Modal State
+    const [selectedScenario, setSelectedScenario] = useState(null);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editForm, setEditForm] = useState({});
+
+    // Schedule Creation State
+    const [showScheduleForm, setShowScheduleForm] = useState(false);
+    const [scheduleTitle, setScheduleTitle] = useState('');
+    const [scheduleDate, setScheduleDate] = useState('');
+    const [scheduleTime, setScheduleTime] = useState('10:00');
+    const [selectedScenarioId, setSelectedScenarioId] = useState('');
+    const [selectedUserIds, setSelectedUserIds] = useState([]);
+    const [showSentSchedules, setShowSentSchedules] = useState(false);
+
+    // Training Detail Modal State
+    const [selectedTraining, setSelectedTraining] = useState(null);
 
     // Queries
     const { data: users, isLoading: usersLoading, refetch: refetchUsers } = useQuery({
@@ -26,13 +44,13 @@ export default function Admin() {
         enabled: isLoggedIn,
     });
 
-    const { data: schedule, isLoading: scheduleLoading } = useQuery({
-        queryKey: ['admin-schedule'],
-        queryFn: () => adminApi.getSchedule(false),
+    const { data: schedule, isLoading: scheduleLoading, refetch: refetchSchedule } = useQuery({
+        queryKey: ['admin-schedule', showSentSchedules],
+        queryFn: () => adminApi.getSchedule(showSentSchedules),
         enabled: isLoggedIn,
     });
 
-    const { data: scenarios, isLoading: scenariosLoading } = useQuery({
+    const { data: scenarios, isLoading: scenariosLoading, refetch: refetchScenarios } = useQuery({
         queryKey: ['admin-scenarios'],
         queryFn: adminApi.getScenarioPreviews,
         enabled: isLoggedIn,
@@ -41,6 +59,12 @@ export default function Admin() {
     const { data: stats, isLoading: statsLoading } = useQuery({
         queryKey: ['admin-stats'],
         queryFn: adminApi.getStats,
+        enabled: isLoggedIn,
+    });
+
+    const { data: scenarioStats, isLoading: scenarioStatsLoading } = useQuery({
+        queryKey: ['admin-scenario-stats'],
+        queryFn: adminApi.getScenarioStats,
         enabled: isLoggedIn,
     });
 
@@ -73,9 +97,95 @@ export default function Admin() {
         },
     });
 
+    const updateScenarioMutation = useMutation({
+        mutationFn: ({ id, data }) => adminApi.updateScenario(id, data),
+        onSuccess: () => {
+            refetchScenarios();
+            setIsEditMode(false);
+            setSelectedScenario(null);
+        },
+        onError: (err) => {
+            alert('수정 실패: ' + err.message);
+        },
+    });
+
+    const createScheduleMutation = useMutation({
+        mutationFn: ({ userIds, scenarioId, scheduledDate, title }) =>
+            adminApi.createSchedule(userIds, scenarioId, scheduledDate, title),
+        onSuccess: (data) => {
+            alert(`${data.created_count}개의 스케줄이 생성되었습니다!`);
+            refetchSchedule();
+            setShowScheduleForm(false);
+            setSelectedUserIds([]);
+            setSelectedScenarioId('');
+            setScheduleDate('');
+            setScheduleTitle('');
+        },
+        onError: (err) => {
+            alert('스케줄 생성 실패: ' + err.message);
+        },
+    });
+
     const handleLogin = (e) => {
         e.preventDefault();
         loginMutation.mutate();
+    };
+
+    const handleScenarioClick = async (scenario) => {
+        try {
+            const detail = await adminApi.getScenarioDetail(scenario.id);
+            setSelectedScenario(detail);
+            setEditForm({
+                name: detail.name,
+                description: detail.description || '',
+                subject: detail.subject || '',
+                body_template: detail.body_template || '',
+                sender_name: detail.sender_name || '',
+                difficulty: detail.difficulty || 'medium',
+            });
+            setIsEditMode(false);
+        } catch (err) {
+            alert('시나리오 조회 실패: ' + err.message);
+        }
+    };
+
+    const handleSaveScenario = () => {
+        updateScenarioMutation.mutate({
+            id: selectedScenario.id,
+            data: editForm,
+        });
+    };
+
+    const handleCreateSchedule = () => {
+        if (!scheduleDate || !selectedScenarioId || selectedUserIds.length === 0) {
+            alert('모든 필드를 입력해주세요.');
+            return;
+        }
+        const scheduledDate = new Date(`${scheduleDate}T${scheduleTime}:00`);
+        createScheduleMutation.mutate({
+            userIds: selectedUserIds,
+            scenarioId: selectedScenarioId,
+            scheduledDate: scheduledDate.toISOString(),
+            title: scheduleTitle || null,
+        });
+    };
+
+    const toggleUserSelection = (userId) => {
+        setSelectedUserIds(prev =>
+            prev.includes(userId)
+                ? prev.filter(id => id !== userId)
+                : [...prev, userId]
+        );
+    };
+
+    const selectAllUsers = () => {
+        if (users && users.length > 0) {
+            setSelectedUserIds(users.map(u => u.id));
+        }
+    };
+
+    const deselectAllUsers = () => {
+        setSelectedUserIds([]);
     };
 
     // Login Screen
@@ -304,10 +414,13 @@ export default function Admin() {
 
                         {/* Scenario List */}
                         <Card className="border-gray-700">
-                            <CardHeader>
+                            <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle className="flex items-center gap-2">
                                     <Eye size={20} /> 시나리오 목록
                                 </CardTitle>
+                                <Button variant="ghost" size="sm" onClick={() => refetchScenarios()}>
+                                    <RefreshCw size={16} />
+                                </Button>
                             </CardHeader>
                             <CardContent>
                                 {scenariosLoading ? (
@@ -319,7 +432,11 @@ export default function Admin() {
                                 ) : (
                                     <div className="space-y-4">
                                         {scenarios?.map((scenario) => (
-                                            <div key={scenario.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                                            <div
+                                                key={scenario.id}
+                                                onClick={() => handleScenarioClick(scenario)}
+                                                className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 cursor-pointer hover:border-neon-cyan/50 transition-colors"
+                                            >
                                                 <div className="flex items-center justify-between mb-2">
                                                     <h3 className="text-white font-medium">{scenario.name}</h3>
                                                     <span className={`px-2 py-1 rounded text-xs ${scenario.difficulty === 'hard' ? 'bg-red-500/20 text-red-400' :
@@ -345,76 +462,647 @@ export default function Admin() {
                 )}
 
                 {activeTab === 'stats' && (
-                    <div className="grid grid-cols-1 md::grid-cols-2 gap-6">
-                        <Card className="border-gray-700">
-                            <CardHeader>
-                                <CardTitle>연령대별 통계</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {Object.entries(stats?.stats_by_age_group || {}).map(([age, data]) => (
-                                    <div key={age} className="flex items-center justify-between py-2 border-b border-gray-800">
-                                        <span className="text-white">{age}</span>
-                                        <div className="text-right">
-                                            <span className="text-gray-400 text-sm">실패율: </span>
-                                            <span className={data.fail_rate > 50 ? 'text-red-400' : 'text-green-400'}>
-                                                {data.fail_rate.toFixed(1)}%
-                                            </span>
+                    <div className="space-y-6">
+                        {/* Age Group Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card className="border-gray-700">
+                                <CardHeader>
+                                    <CardTitle>연령대별 통계</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {Object.entries(stats?.stats_by_age_group || {}).map(([age, data]) => (
+                                        <div key={age} className="flex items-center justify-between py-2 border-b border-gray-800">
+                                            <span className="text-white">{age}</span>
+                                            <div className="text-right">
+                                                <span className="text-gray-400 text-sm">실패율: </span>
+                                                <span className={data.fail_rate > 50 ? 'text-red-400' : 'text-green-400'}>
+                                                    {data.fail_rate.toFixed(1)}%
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </Card>
+                                    ))}
+                                </CardContent>
+                            </Card>
 
+                            <Card className="border-gray-700">
+                                <CardHeader>
+                                    <CardTitle>성별별 통계</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {Object.entries(stats?.stats_by_gender || {}).map(([gender, data]) => (
+                                        <div key={gender} className="flex items-center justify-between py-2 border-b border-gray-800">
+                                            <span className="text-white">{gender}</span>
+                                            <div className="text-right">
+                                                <span className="text-gray-400 text-sm">실패율: </span>
+                                                <span className={data.fail_rate > 50 ? 'text-red-400' : 'text-green-400'}>
+                                                    {data.fail_rate.toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Scenario Stats */}
                         <Card className="border-gray-700">
                             <CardHeader>
-                                <CardTitle>성별별 통계</CardTitle>
+                                <CardTitle>시나리오별 통계</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {Object.entries(stats?.stats_by_gender || {}).map(([gender, data]) => (
-                                    <div key={gender} className="flex items-center justify-between py-2 border-b border-gray-800">
-                                        <span className="text-white">{gender}</span>
-                                        <div className="text-right">
-                                            <span className="text-gray-400 text-sm">실패율: </span>
-                                            <span className={data.fail_rate > 50 ? 'text-red-400' : 'text-green-400'}>
-                                                {data.fail_rate.toFixed(1)}%
-                                            </span>
-                                        </div>
+                                {scenarioStatsLoading ? (
+                                    <div className="text-center py-8">
+                                        <Loader2 className="animate-spin mx-auto text-neon-cyan" size={32} />
                                     </div>
-                                ))}
+                                ) : scenarioStats?.scenario_stats?.length === 0 ? (
+                                    <p className="text-gray-400 text-center py-8">시나리오 통계가 없습니다.</p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-gray-700 text-gray-400">
+                                                    <th className="text-left py-3 px-2">시나리오</th>
+                                                    <th className="text-left py-3 px-2">난이도</th>
+                                                    <th className="text-center py-3 px-2">발송 수</th>
+                                                    <th className="text-center py-3 px-2">클릭 수</th>
+                                                    <th className="text-center py-3 px-2">클릭률</th>
+                                                    <th className="text-center py-3 px-2">실패율</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {scenarioStats?.scenario_stats?.map((stat) => (
+                                                    <tr key={stat.scenario_id} className="border-b border-gray-800 text-white">
+                                                        <td className="py-3 px-2">{stat.scenario_name}</td>
+                                                        <td className="py-3 px-2">
+                                                            <span className={`px-2 py-1 rounded text-xs ${stat.difficulty === 'hard' ? 'bg-red-500/20 text-red-400' :
+                                                                stat.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                    'bg-green-500/20 text-green-400'
+                                                                }`}>
+                                                                {stat.difficulty}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-2 text-center">{stat.total_sent}</td>
+                                                        <td className="py-3 px-2 text-center">{stat.total_clicked}</td>
+                                                        <td className="py-3 px-2 text-center">
+                                                            <span className={stat.click_rate > 30 ? 'text-yellow-400' : 'text-gray-400'}>
+                                                                {stat.click_rate}%
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-2 text-center">
+                                                            <span className={stat.fail_rate > 50 ? 'text-red-400' : 'text-green-400'}>
+                                                                {stat.fail_rate}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
                 )}
 
                 {activeTab === 'schedule' && (
-                    <Card className="border-gray-700">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Calendar size={20} /> 예정된 훈련
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {scheduleLoading ? (
-                                <div className="text-center py-8">
-                                    <Loader2 className="animate-spin mx-auto text-neon-cyan" size={32} />
-                                </div>
-                            ) : schedule?.length === 0 ? (
-                                <p className="text-gray-400 text-center py-8">예정된 훈련이 없습니다.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {schedule?.map((item) => (
-                                        <div key={item.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded">
-                                            <span className="text-white">{item.user_email}</span>
-                                            <span className="text-gray-400">{item.scenario_name || '미정'}</span>
-                                            <span className="text-neon-cyan">
-                                                {new Date(item.scheduled_date).toLocaleDateString()}
-                                            </span>
+                    <div className="space-y-6">
+                        {/* Schedule Creation Form */}
+                        <Card className="border-gray-700">
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <CardTitle className="flex items-center gap-2">
+                                    <Plus size={20} /> 스케줄 생성하기
+                                </CardTitle>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowScheduleForm(!showScheduleForm)}
+                                >
+                                    {showScheduleForm ? '접기' : '펼치기'}
+                                </Button>
+                            </CardHeader>
+                            {showScheduleForm && (
+                                <CardContent className="space-y-4">
+                                    {/* 훈련 제목 */}
+                                    <div>
+                                        <label className="block text-gray-400 text-sm mb-2">훈련 제목</label>
+                                        <Input
+                                            type="text"
+                                            placeholder="예: 2024년 1월 피싱 훈련"
+                                            value={scheduleTitle}
+                                            onChange={(e) => setScheduleTitle(e.target.value)}
+                                            className="bg-gray-800 border-gray-600"
+                                        />
+                                    </div>
+
+                                    {/* Date & Time */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-gray-400 text-sm mb-2">날짜</label>
+                                            <Input
+                                                type="date"
+                                                value={scheduleDate}
+                                                onChange={(e) => setScheduleDate(e.target.value)}
+                                                className="bg-gray-800 border-gray-600"
+                                            />
                                         </div>
-                                    ))}
-                                </div>
+                                        <div>
+                                            <label className="block text-gray-400 text-sm mb-2">시간</label>
+                                            <Input
+                                                type="time"
+                                                value={scheduleTime}
+                                                onChange={(e) => setScheduleTime(e.target.value)}
+                                                className="bg-gray-800 border-gray-600"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Scenario Selection */}
+                                    <div>
+                                        <label className="block text-gray-400 text-sm mb-2">시나리오 선택</label>
+                                        <select
+                                            value={selectedScenarioId}
+                                            onChange={(e) => setSelectedScenarioId(e.target.value)}
+                                            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        >
+                                            <option value="">시나리오를 선택하세요</option>
+                                            {scenarios?.map((s) => (
+                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* User Selection */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-gray-400 text-sm">발송 대상 사용자</label>
+                                            <div className="flex gap-2">
+                                                <Button variant="ghost" size="sm" onClick={selectAllUsers}>
+                                                    전체 선택
+                                                </Button>
+                                                <Button variant="ghost" size="sm" onClick={deselectAllUsers}>
+                                                    전체 해제
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div className="max-h-40 overflow-y-auto bg-gray-800/50 rounded-lg p-2 space-y-1">
+                                            {users?.map((user) => (
+                                                <label
+                                                    key={user.id}
+                                                    className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedUserIds.includes(user.id)}
+                                                        onChange={() => toggleUserSelection(user.id)}
+                                                        className="rounded"
+                                                    />
+                                                    <span className="text-white text-sm">{user.email}</span>
+                                                    {user.age_group && (
+                                                        <span className="text-gray-500 text-xs">({user.age_group})</span>
+                                                    )}
+                                                </label>
+                                            ))}
+                                        </div>
+                                        <p className="text-gray-500 text-xs mt-1">
+                                            {selectedUserIds.length}명 선택됨
+                                        </p>
+                                    </div>
+
+                                    {/* Submit Button */}
+                                    <Button
+                                        onClick={handleCreateSchedule}
+                                        disabled={createScheduleMutation.isPending}
+                                        className="w-full bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30"
+                                    >
+                                        {createScheduleMutation.isPending ? (
+                                            <Loader2 className="animate-spin mr-2" size={16} />
+                                        ) : (
+                                            <Plus className="mr-2" size={16} />
+                                        )}
+                                        스케줄 생성하기
+                                    </Button>
+                                </CardContent>
                             )}
-                        </CardContent>
-                    </Card>
+                        </Card>
+
+                        {/* Schedule List - Grouped by Title */}
+                        <Card className="border-gray-700">
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <CardTitle className="flex items-center gap-2">
+                                    <Calendar size={20} /> 훈련 스케줄
+                                </CardTitle>
+                                <div className="flex items-center gap-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={showSentSchedules}
+                                            onChange={(e) => setShowSentSchedules(e.target.checked)}
+                                            className="rounded"
+                                        />
+                                        <span className="text-gray-400 text-sm">완료된 스케줄 포함</span>
+                                    </label>
+                                    <Button variant="ghost" size="sm" onClick={() => refetchSchedule()}>
+                                        <RefreshCw size={16} />
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {scheduleLoading ? (
+                                    <div className="text-center py-8">
+                                        <Loader2 className="animate-spin mx-auto text-neon-cyan" size={32} />
+                                    </div>
+                                ) : schedule?.length === 0 ? (
+                                    <p className="text-gray-400 text-center py-8">
+                                        {showSentSchedules ? '스케줄이 없습니다.' : '예정된 훈련이 없습니다.'}
+                                    </p>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {(() => {
+                                            // Group schedules by title
+                                            const groupedSchedules = schedule?.reduce((groups, item) => {
+                                                const key = item.title || '제목 없음';
+                                                if (!groups[key]) {
+                                                    groups[key] = [];
+                                                }
+                                                groups[key].push(item);
+                                                return groups;
+                                            }, {});
+
+                                            return Object.entries(groupedSchedules || {}).map(([title, items]) => {
+                                                const sentCount = items.filter(i => i.is_sent).length;
+                                                const totalCount = items.length;
+                                                const allSent = sentCount === totalCount;
+                                                const scheduledDate = items[0]?.scheduled_date;
+                                                const scenarioName = items[0]?.scenario_name;
+
+                                                return (
+                                                    <div
+                                                        key={title}
+                                                        onClick={() => setSelectedTraining({ title, items })}
+                                                        className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg ${allSent
+                                                            ? 'bg-green-900/20 border-green-500/30 hover:border-green-500/60'
+                                                            : 'bg-gray-800/50 border-gray-700 hover:border-neon-cyan/50'
+                                                            }`}
+                                                    >
+                                                        {/* Header */}
+                                                        <div className="flex items-start justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                {allSent ? (
+                                                                    <div className="p-2 bg-green-500/20 rounded-lg">
+                                                                        <Check className="text-green-400" size={18} />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="p-2 bg-neon-cyan/20 rounded-lg">
+                                                                        <Calendar className="text-neon-cyan" size={18} />
+                                                                    </div>
+                                                                )}
+                                                                <h3 className="text-white font-semibold truncate max-w-[150px]">
+                                                                    {title}
+                                                                </h3>
+                                                            </div>
+                                                            {allSent && (
+                                                                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
+                                                                    완료
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Info */}
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2 text-sm">
+                                                                <Users size={14} className="text-gray-400" />
+                                                                <span className="text-gray-300">
+                                                                    {totalCount}명 대상
+                                                                </span>
+                                                                {!allSent && sentCount > 0 && (
+                                                                    <span className="text-green-400 text-xs">
+                                                                        ({sentCount}명 발송완료)
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-sm">
+                                                                <Calendar size={14} className="text-gray-400" />
+                                                                <span className={allSent ? 'text-green-400' : 'text-neon-cyan'}>
+                                                                    {scheduledDate ? new Date(scheduledDate).toLocaleDateString('ko-KR', {
+                                                                        year: 'numeric',
+                                                                        month: 'long',
+                                                                        day: 'numeric'
+                                                                    }) : '-'}
+                                                                </span>
+                                                            </div>
+                                                            {scenarioName && (
+                                                                <div className="flex items-center gap-2 text-sm">
+                                                                    <Shield size={14} className="text-gray-400" />
+                                                                    <span className="text-gray-400 truncate">
+                                                                        {scenarioName}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Progress Bar */}
+                                                        {totalCount > 1 && (
+                                                            <div className="mt-3 pt-3 border-t border-gray-700">
+                                                                <div className="flex items-center justify-between text-xs mb-1">
+                                                                    <span className="text-gray-500">진행률</span>
+                                                                    <span className={allSent ? 'text-green-400' : 'text-gray-400'}>
+                                                                        {sentCount}/{totalCount}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="w-full bg-gray-700 rounded-full h-1.5">
+                                                                    <div
+                                                                        className={`h-1.5 rounded-full transition-all duration-300 ${allSent ? 'bg-green-500' : 'bg-neon-cyan'
+                                                                            }`}
+                                                                        style={{ width: `${(sentCount / totalCount) * 100}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {/* Scenario Detail Modal */}
+                {selectedScenario && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                        <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                            <div className="sticky top-0 bg-gray-900 p-4 border-b border-gray-700 flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-white">시나리오 상세</h2>
+                                <div className="flex items-center gap-2">
+                                    {!isEditMode ? (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setIsEditMode(true)}
+                                        >
+                                            <Edit3 size={16} className="mr-1" /> 수정
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            size="sm"
+                                            onClick={handleSaveScenario}
+                                            disabled={updateScenarioMutation.isPending}
+                                            className="bg-neon-cyan/20 text-neon-cyan"
+                                        >
+                                            {updateScenarioMutation.isPending ? (
+                                                <Loader2 className="animate-spin" size={16} />
+                                            ) : (
+                                                <>
+                                                    <Save size={16} className="mr-1" /> 저장
+                                                </>
+                                            )}
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setSelectedScenario(null);
+                                            setIsEditMode(false);
+                                        }}
+                                    >
+                                        <X size={20} />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="p-4 space-y-4">
+                                {/* Name */}
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">시나리오 이름</label>
+                                    {isEditMode ? (
+                                        <Input
+                                            value={editForm.name}
+                                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                            className="bg-gray-800"
+                                        />
+                                    ) : (
+                                        <p className="text-white">{selectedScenario.name}</p>
+                                    )}
+                                </div>
+
+                                {/* Difficulty */}
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">난이도</label>
+                                    {isEditMode ? (
+                                        <select
+                                            value={editForm.difficulty}
+                                            onChange={(e) => setEditForm({ ...editForm, difficulty: e.target.value })}
+                                            className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        >
+                                            <option value="easy">easy</option>
+                                            <option value="medium">medium</option>
+                                            <option value="hard">hard</option>
+                                        </select>
+                                    ) : (
+                                        <span className={`px-2 py-1 rounded text-xs ${selectedScenario.difficulty === 'hard' ? 'bg-red-500/20 text-red-400' :
+                                            selectedScenario.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                'bg-green-500/20 text-green-400'
+                                            }`}>
+                                            {selectedScenario.difficulty}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Description */}
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">설명</label>
+                                    {isEditMode ? (
+                                        <textarea
+                                            value={editForm.description}
+                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white h-20"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-300">{selectedScenario.description || '-'}</p>
+                                    )}
+                                </div>
+
+                                {/* Subject */}
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">이메일 제목</label>
+                                    {isEditMode ? (
+                                        <Input
+                                            value={editForm.subject}
+                                            onChange={(e) => setEditForm({ ...editForm, subject: e.target.value })}
+                                            className="bg-gray-800"
+                                        />
+                                    ) : (
+                                        <p className="text-white">{selectedScenario.subject || '-'}</p>
+                                    )}
+                                </div>
+
+                                {/* Sender Name */}
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">발신자명</label>
+                                    {isEditMode ? (
+                                        <Input
+                                            value={editForm.sender_name}
+                                            onChange={(e) => setEditForm({ ...editForm, sender_name: e.target.value })}
+                                            className="bg-gray-800"
+                                        />
+                                    ) : (
+                                        <p className="text-white">{selectedScenario.sender_name || '-'}</p>
+                                    )}
+                                </div>
+
+                                {/* Body Template */}
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">이메일 본문</label>
+                                    {isEditMode ? (
+                                        <textarea
+                                            value={editForm.body_template}
+                                            onChange={(e) => setEditForm({ ...editForm, body_template: e.target.value })}
+                                            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white h-40 font-mono text-sm"
+                                        />
+                                    ) : (
+                                        <div className="bg-gray-800 rounded-lg p-3 text-gray-300 text-sm whitespace-pre-wrap">
+                                            {selectedScenario.body_template || '-'}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Metadata */}
+                                <div className="pt-4 border-t border-gray-700 text-gray-500 text-xs">
+                                    <p>생성일: {new Date(selectedScenario.created_at).toLocaleString()}</p>
+                                    <p>수정일: {new Date(selectedScenario.updated_at).toLocaleString()}</p>
+                                    {selectedScenario.is_llm_generated && (
+                                        <p className="text-neon-purple">AI 생성 시나리오</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Training Detail Modal */}
+                {selectedTraining && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                        <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                            {/* Modal Header */}
+                            <div className="sticky top-0 bg-gray-900 p-4 border-b border-gray-700 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg ${selectedTraining.items.every(i => i.is_sent)
+                                            ? 'bg-green-500/20'
+                                            : 'bg-neon-cyan/20'
+                                        }`}>
+                                        {selectedTraining.items.every(i => i.is_sent) ? (
+                                            <Check className="text-green-400" size={20} />
+                                        ) : (
+                                            <Calendar className="text-neon-cyan" size={20} />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white">{selectedTraining.title}</h2>
+                                        <p className="text-gray-400 text-sm">
+                                            {selectedTraining.items[0]?.scheduled_date &&
+                                                new Date(selectedTraining.items[0].scheduled_date).toLocaleDateString('ko-KR', {
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedTraining(null)}
+                                >
+                                    <X size={20} />
+                                </Button>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="p-4 overflow-y-auto flex-1">
+                                {/* Summary */}
+                                <div className="grid grid-cols-3 gap-4 mb-6">
+                                    <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                                        <p className="text-gray-400 text-xs mb-1">총 대상자</p>
+                                        <p className="text-white text-2xl font-bold">{selectedTraining.items.length}</p>
+                                    </div>
+                                    <div className="bg-green-500/10 rounded-lg p-3 text-center">
+                                        <p className="text-gray-400 text-xs mb-1">발송 완료</p>
+                                        <p className="text-green-400 text-2xl font-bold">
+                                            {selectedTraining.items.filter(i => i.is_sent).length}
+                                        </p>
+                                    </div>
+                                    <div className="bg-neon-cyan/10 rounded-lg p-3 text-center">
+                                        <p className="text-gray-400 text-xs mb-1">대기 중</p>
+                                        <p className="text-neon-cyan text-2xl font-bold">
+                                            {selectedTraining.items.filter(i => !i.is_sent).length}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Scenario Info */}
+                                {selectedTraining.items[0]?.scenario_name && (
+                                    <div className="mb-6 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Shield size={16} className="text-neon-purple" />
+                                            <span className="text-gray-400 text-sm">시나리오</span>
+                                        </div>
+                                        <p className="text-white font-medium">{selectedTraining.items[0].scenario_name}</p>
+                                    </div>
+                                )}
+
+                                {/* Participants List */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Users size={16} className="text-gray-400" />
+                                        <span className="text-gray-400 text-sm">참여자 목록</span>
+                                    </div>
+                                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                        {selectedTraining.items.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className={`p-3 rounded-lg border flex items-center justify-between ${item.is_sent
+                                                        ? 'bg-green-900/10 border-green-500/20'
+                                                        : 'bg-gray-800/50 border-gray-700'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-2 h-2 rounded-full ${item.is_sent ? 'bg-green-400' : 'bg-gray-500'
+                                                        }`} />
+                                                    <span className="text-white">{item.user_email}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {item.is_sent ? (
+                                                        <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                                                            발송완료
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded">
+                                                            대기 중
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-4 border-t border-gray-700 bg-gray-900">
+                                <Button
+                                    onClick={() => setSelectedTraining(null)}
+                                    className="w-full bg-gray-700 hover:bg-gray-600"
+                                >
+                                    닫기
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

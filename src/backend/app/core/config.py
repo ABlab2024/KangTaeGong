@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "changethis"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
-    # Admin credentials
-    ADMIN_EMAIL: str = "siinwoo036@gmail.com"
-    ADMIN_PASSWORD: str = "admin12!@"
+    # Admin credentials (loaded from .env)
+    ADMIN_EMAIL: str = "admin@example.com"  # Override in .env
+    ADMIN_PASSWORD: str = "changeme"  # Override in .env
     
     # Gemini AI
     GEMINI_API_KEY: Optional[str] = None

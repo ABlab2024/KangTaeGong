@@ -44,6 +44,7 @@ class TrainingScheduleInfo(BaseModel):
     user_email: str
     scheduled_date: datetime
     scenario_name: Optional[str] = None
+    title: Optional[str] = None
     is_sent: bool = False
 
 
@@ -76,6 +77,42 @@ class ScenarioGenerationBody(BaseModel):
     target_preferences: Optional[List[str]] = None
 
 
+class ScenarioUpdateRequest(BaseModel):
+    """시나리오 수정 요청"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    subject: Optional[str] = None
+    body_template: Optional[str] = None
+    sender_name: Optional[str] = None
+    difficulty: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class ScenarioDetailResponse(BaseModel):
+    """시나리오 상세 응답"""
+    id: str
+    name: str
+    description: Optional[str] = None
+    scenario_type: Optional[str] = None
+    difficulty: str = "medium"
+    subject: Optional[str] = None
+    body_template: Optional[str] = None
+    sender_name: Optional[str] = None
+    source_url: Optional[str] = None
+    is_llm_generated: bool = False
+    is_active: bool = True
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScheduleCreateRequest(BaseModel):
+    """스케줄 생성 요청"""
+    user_ids: List[str]
+    scenario_id: str
+    scheduled_date: datetime
+    title: Optional[str] = None  # 훈련 제목
+
+
 # Helper to verify admin
 def verify_admin_token(token: str) -> bool:
     """Verify if the token belongs to admin."""
@@ -85,6 +122,44 @@ def verify_admin_token(token: str) -> bool:
         return payload.get("sub") == "admin"
     except:
         return False
+
+
+def personalize_email_body(
+    body_template: str,
+    user: User,
+    profile: Optional[UserProfile] = None
+) -> str:
+    """시나리오 템플릿을 사용자 프로필 데이터로 개인화합니다."""
+    body = body_template
+    
+    # 기본 사용자 정보
+    name = user.email.split("@")[0]
+    body = body.replace("{name}", name)
+    body = body.replace("{email}", user.email)
+    
+    if profile:
+        # 프로필 정보 - 설문조사 결과
+        body = body.replace("{location}", profile.location or "")
+        body = body.replace("{occupation}", profile.occupation or "")
+        body = body.replace("{age}", str(profile.age) if profile.age else "")
+        
+        # 선호도 정보
+        try:
+            prefs = json.loads(profile.content_preferences) if profile.content_preferences else []
+            aug_prefs = json.loads(profile.augmented_preferences) if profile.augmented_preferences else []
+            all_prefs = prefs + aug_prefs
+            prefs_text = ", ".join(all_prefs[:3]) if all_prefs else ""
+            body = body.replace("{preferences}", prefs_text)
+        except:
+            body = body.replace("{preferences}", "")
+    else:
+        # 프로필이 없는 경우 빈 문자열로 대체
+        body = body.replace("{location}", "")
+        body = body.replace("{occupation}", "")
+        body = body.replace("{age}", "")
+        body = body.replace("{preferences}", "")
+    
+    return body
 
 
 @router.get("/users", response_model=List[UserSummary])
@@ -125,11 +200,12 @@ async def get_training_schedule(
     db: AsyncSession = Depends(get_db),
     include_sent: bool = False,
 ) -> Any:
-    """훈련 예정 스케줄을 조회합니다."""
+    """훈련 예정 스케줄을 조회합니다. 제목 기준으로 정렬합니다."""
     query = select(TrainingSchedule)
     if not include_sent:
         query = query.where(TrainingSchedule.is_sent == False)
-    query = query.order_by(TrainingSchedule.scheduled_date)
+    # 제목 기준 정렬 (NULL은 뒤로), 그 다음 예정일 기준 정렬
+    query = query.order_by(TrainingSchedule.title.asc().nullslast(), TrainingSchedule.scheduled_date)
     
     result = await db.execute(query)
     schedules = result.scalars().all()
@@ -156,6 +232,7 @@ async def get_training_schedule(
             user_email=user.email if user else "Unknown",
             scheduled_date=schedule.scheduled_date,
             scenario_name=scenario_name,
+            title=schedule.title,
             is_sent=schedule.is_sent
         ))
     
@@ -332,6 +409,12 @@ async def send_simulation_to_users(
     sent_count = 0
     
     for user in users:
+        # Get user profile for personalization
+        profile_result = await db.execute(
+            select(UserProfile).where(UserProfile.user_id == user.id)
+        )
+        profile = profile_result.scalar_one_or_none()
+        
         # Create simulation result record
         sim_result = SimulationResult(
             user_id=user.id,
@@ -344,9 +427,12 @@ async def send_simulation_to_users(
         await db.commit()
         await db.refresh(sim_result)
         
-        # Send email
-        body_html = scenario.body_template or ""
-        body_html = body_html.replace("{name}", user.email.split("@")[0])
+        # Personalize email body with user profile data
+        body_html = personalize_email_body(
+            body_template=scenario.body_template or "",
+            user=user,
+            profile=profile
+        )
         
         success = await email_service.send_phishing_email(
             to_email=user.email,
@@ -473,3 +559,179 @@ async def get_next_training_period() -> Any:
         "start_date": datetime(year, next_month, 1).isoformat(),
         "end_date": datetime(year, next_month, 7).isoformat()
     }
+
+
+@router.get("/scenario/{scenario_id}", response_model=ScenarioDetailResponse)
+async def get_scenario_detail(
+    scenario_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """시나리오 상세 정보를 조회합니다."""
+    result = await db.execute(
+        select(PhishingScenario).where(PhishingScenario.id == scenario_id)
+    )
+    scenario = result.scalar_one_or_none()
+    
+    if not scenario:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    
+    return ScenarioDetailResponse(
+        id=scenario.id,
+        name=scenario.name,
+        description=scenario.description,
+        scenario_type=scenario.scenario_type,
+        difficulty=scenario.difficulty or "medium",
+        subject=scenario.subject,
+        body_template=scenario.body_template,
+        sender_name=scenario.sender_name,
+        source_url=scenario.source_url,
+        is_llm_generated=scenario.is_llm_generated,
+        is_active=scenario.is_active,
+        created_at=scenario.created_at,
+        updated_at=scenario.updated_at
+    )
+
+
+@router.put("/scenario/{scenario_id}", response_model=ScenarioDetailResponse)
+async def update_scenario(
+    scenario_id: str,
+    request: ScenarioUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """시나리오를 수정합니다."""
+    result = await db.execute(
+        select(PhishingScenario).where(PhishingScenario.id == scenario_id)
+    )
+    scenario = result.scalar_one_or_none()
+    
+    if not scenario:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    
+    # Update only provided fields
+    update_data = request.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(scenario, field, value)
+    
+    scenario.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(scenario)
+    
+    return ScenarioDetailResponse(
+        id=scenario.id,
+        name=scenario.name,
+        description=scenario.description,
+        scenario_type=scenario.scenario_type,
+        difficulty=scenario.difficulty or "medium",
+        subject=scenario.subject,
+        body_template=scenario.body_template,
+        sender_name=scenario.sender_name,
+        source_url=scenario.source_url,
+        is_llm_generated=scenario.is_llm_generated,
+        is_active=scenario.is_active,
+        created_at=scenario.created_at,
+        updated_at=scenario.updated_at
+    )
+
+
+@router.post("/schedule")
+async def create_schedule(
+    request: ScheduleCreateRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """훈련 스케줄을 생성합니다."""
+    # Verify scenario exists
+    scenario_result = await db.execute(
+        select(PhishingScenario).where(PhishingScenario.id == request.scenario_id)
+    )
+    scenario = scenario_result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    
+    # Verify users exist
+    user_result = await db.execute(
+        select(User).where(User.id.in_(request.user_ids))
+    )
+    users = user_result.scalars().all()
+    
+    if len(users) != len(request.user_ids):
+        raise HTTPException(status_code=400, detail="Some user IDs are invalid")
+    
+    created_schedules = []
+    for user in users:
+        schedule = TrainingSchedule(
+            user_id=user.id,
+            scenario_id=request.scenario_id,
+            scheduled_date=request.scheduled_date,
+            title=request.title,
+            is_sent=False
+        )
+        db.add(schedule)
+        created_schedules.append({
+            "user_id": user.id,
+            "user_email": user.email,
+            "scenario_id": request.scenario_id,
+            "scheduled_date": request.scheduled_date.isoformat()
+        })
+    
+    await db.commit()
+    
+    return {
+        "message": f"Created {len(created_schedules)} schedules",
+        "created_count": len(created_schedules),
+        "schedules": created_schedules
+    }
+
+
+@router.get("/stats/scenario")
+async def get_stats_by_scenario(
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """시나리오별 통계를 조회합니다."""
+    # Get all scenarios with their stats
+    result = await db.execute(
+        select(PhishingScenario).where(PhishingScenario.is_active == True)
+    )
+    scenarios = result.scalars().all()
+    
+    stats = []
+    for scenario in scenarios:
+        # Total simulations for this scenario
+        total_result = await db.execute(
+            select(func.count(SimulationResult.id))
+            .where(SimulationResult.scenario_id == scenario.id)
+        )
+        total = total_result.scalar() or 0
+        
+        # Failed (not defended)
+        failed_result = await db.execute(
+            select(func.count(SimulationResult.id))
+            .where(SimulationResult.scenario_id == scenario.id)
+            .where(SimulationResult.is_defended == False)
+        )
+        failed = failed_result.scalar() or 0
+        
+        # Link clicked
+        clicked_result = await db.execute(
+            select(func.count(SimulationResult.id))
+            .where(SimulationResult.scenario_id == scenario.id)
+            .where(SimulationResult.link_clicked == True)
+        )
+        clicked = clicked_result.scalar() or 0
+        
+        stats.append({
+            "scenario_id": scenario.id,
+            "scenario_name": scenario.name,
+            "difficulty": scenario.difficulty or "medium",
+            "total_sent": total,
+            "total_failed": failed,
+            "total_clicked": clicked,
+            "fail_rate": round((failed / total * 100), 1) if total > 0 else 0,
+            "click_rate": round((clicked / total * 100), 1) if total > 0 else 0
+        })
+    
+    return {
+        "scenario_stats": stats,
+        "total_scenarios": len(stats)
+    }
+

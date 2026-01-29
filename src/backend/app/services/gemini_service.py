@@ -134,9 +134,16 @@ class GeminiService:
     "difficulty": "easy/medium/hard 중 하나",
     "subject": "이메일 제목",
     "sender_name": "발신자 이름",
-    "body": "이메일 본문 (HTML 형식, {{link}} 자리표시자 포함)",
+    "body": "이메일 본문 (HTML 형식, 아래 placeholder 사용)",
     "red_flags": ["의심 포인트1", "의심 포인트2", "의심 포인트3"]
 }}
+
+## 본문 작성 시 사용 가능한 Placeholder (개인화용)
+- {{name}}: 수신자 이름
+- {{location}}: 수신자 거주지역
+- {{occupation}}: 수신자 직업
+- {{preferences}}: 수신자 관심사
+- {{link}}: 피싱 링크 (필수 포함)
 
 주의: 이것은 100% 교육 목적이며, 실제 피해를 발생시키지 않습니다.
 반드시 JSON 형식만 출력하세요. 마크다운이나 다른 설명은 생략하세요.
@@ -218,9 +225,16 @@ class GeminiService:
     "difficulty": "medium",
     "subject": "이메일 제목",
     "sender_name": "발신자 이름",
-    "body": "이메일 본문 (HTML 형식, {{link}} 자리표시자 포함)",
+    "body": "이메일 본문 (HTML 형식, 아래 placeholder 사용)",
     "red_flags": ["의심 포인트1", "의심 포인트2", "의심 포인트3"]
 }}
+
+## 본문 작성 시 사용 가능한 Placeholder (개인화용)
+- {{name}}: 수신자 이름
+- {{location}}: 수신자 거주지역
+- {{occupation}}: 수신자 직업
+- {{preferences}}: 수신자 관심사
+- {{link}}: 피싱 링크 (필수 포함)
 
 주의: 이것은 100% 교육 목적이며, 실제 피해를 발생시키지 않습니다.
 반드시 JSON 형식만 출력하세요. 마크다운이나 다른 설명은 생략하세요.
