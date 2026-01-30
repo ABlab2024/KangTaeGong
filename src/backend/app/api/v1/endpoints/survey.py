@@ -216,10 +216,15 @@ async def augment_preferences(
 
 @router.get("/vulnerability")
 async def get_vulnerability_analysis(
+    refresh: bool = False,
     current_user: User = Depends(deps.get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """사용자의 피싱/스캠 취약점 분석 결과를 조회합니다."""
+    """사용자의 피싱/스캠 취약점 분석 결과를 조회합니다.
+    
+    Args:
+        refresh: True이면 기존 분석을 무시하고 새로 생성합니다.
+    """
     result = await db.execute(
         select(UserProfile).where(UserProfile.user_id == current_user.id)
     )
@@ -231,10 +236,16 @@ async def get_vulnerability_analysis(
             detail="Profile not found. Please complete onboarding first."
         )
     
-    # If analysis doesn't exist, generate it
-    if not profile.vulnerability_analysis:
-        user_prefs = json.loads(profile.content_preferences or "[]")
-        augmented_prefs = json.loads(profile.augmented_preferences or "[]")
+    user_prefs = json.loads(profile.content_preferences or "[]")
+    augmented_prefs = json.loads(profile.augmented_preferences or "[]")
+    
+    # If analysis doesn't exist or refresh is requested, generate it
+    if not profile.vulnerability_analysis or refresh:
+        if not user_prefs:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No preferences found. Please complete onboarding first."
+            )
         
         analysis = await gemini_service.analyze_vulnerability(
             user_preferences=user_prefs,
@@ -245,12 +256,22 @@ async def get_vulnerability_analysis(
         )
         
         profile.vulnerability_analysis = analysis
+        
+        # Generate summary for dashboard display
+        all_prefs = user_prefs + augmented_prefs
+        summary = await gemini_service.summarize_vulnerability_analysis(
+            full_analysis=analysis,
+            user_preferences=all_prefs
+        )
+        if summary:
+            profile.vulnerability_summary = summary
+        
         await db.commit()
     
     return {
         "analysis": profile.vulnerability_analysis,
-        "preferences": json.loads(profile.content_preferences or "[]"),
-        "augmented_preferences": json.loads(profile.augmented_preferences or "[]")
+        "preferences": user_prefs,
+        "augmented_preferences": augmented_prefs
     }
 
 

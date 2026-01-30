@@ -113,6 +113,13 @@ class ScheduleCreateRequest(BaseModel):
     title: Optional[str] = None  # 훈련 제목
 
 
+class ScheduleUpdateRequest(BaseModel):
+    """스케줄 수정 요청"""
+    scheduled_date: Optional[datetime] = None
+    scenario_id: Optional[str] = None
+    title: Optional[str] = None
+
+
 # Helper to verify admin
 def verify_admin_token(token: str) -> bool:
     """Verify if the token belongs to admin."""
@@ -344,6 +351,35 @@ async def generate_scenario(
             detail=f"Generated scenario is missing required fields after {max_retries} attempts. Got keys: {list(scenario_data.keys()) if isinstance(scenario_data, dict) else 'not a dict'}"
         )
     
+    # Generate dummy page HTML for the scenario
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Extract preferences from scenario for dummy page generation
+    scenario_name = scenario_data.get("name", "피싱 시나리오")
+    scenario_description = scenario_data.get("description", "")
+    dummy_page_html = None
+    
+    try:
+        dummy_page_html = await gemini_service.generate_dummy_page_html(
+            scenario_type=scenario_name,
+            target_preferences=[scenario_description] if scenario_description else ["일반"]
+        )
+        # Clean up HTML if wrapped in markdown code blocks
+        if dummy_page_html:
+            dummy_page_html = dummy_page_html.strip()
+            if dummy_page_html.startswith("```html"):
+                dummy_page_html = dummy_page_html[7:]
+            if dummy_page_html.startswith("```"):
+                dummy_page_html = dummy_page_html[3:]
+            if dummy_page_html.endswith("```"):
+                dummy_page_html = dummy_page_html[:-3]
+            dummy_page_html = dummy_page_html.strip()
+        logger.info(f"Successfully generated dummy page HTML ({len(dummy_page_html) if dummy_page_html else 0} bytes)")
+    except Exception as e:
+        logger.error(f"Failed to generate dummy page: {e}")
+        # Continue without dummy page - it will use default fallback
+    
     # Save to database
     new_scenario = PhishingScenario(
         name=scenario_data.get("name", "Generated Scenario"),
@@ -354,6 +390,9 @@ async def generate_scenario(
         body_template=scenario_data.get("body", ""),
         sender_name=scenario_data.get("sender_name", ""),
         source_url=source_url,
+        dummy_page_html=dummy_page_html,
+        # URL will be set after we have the scenario ID; for now use placeholder pattern
+        dummy_page_url=None,  # Will be updated after commit
         is_llm_generated=True,
         is_active=True
     )
@@ -362,12 +401,22 @@ async def generate_scenario(
     await db.commit()
     await db.refresh(new_scenario)
     
+    # Update dummy_page_url with the correct internal serving URL
+    # The actual simulation_id will be used at runtime, so we store a pattern
+    # Format: /api/v1/track/page/{simulation_id} - handled by email_service when sending
+    # For now, we just mark that this scenario has a dummy page available
+    if dummy_page_html:
+        new_scenario.dummy_page_url = f"__INTERNAL__:/api/v1/track/page/{{simulation_id}}"
+        await db.commit()
+        await db.refresh(new_scenario)
+    
     return {
         "scenario_id": new_scenario.id,
         "name": new_scenario.name,
         "subject": new_scenario.subject,
         "body": new_scenario.body_template,
-        "red_flags": scenario_data.get("red_flags", [])
+        "red_flags": scenario_data.get("red_flags", []),
+        "has_dummy_page": dummy_page_html is not None
     }
 
 
@@ -681,6 +730,77 @@ async def create_schedule(
         "created_count": len(created_schedules),
         "schedules": created_schedules
     }
+
+
+@router.put("/schedule/{schedule_id}")
+async def update_schedule(
+    schedule_id: str,
+    request: ScheduleUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """훈련 스케줄을 수정합니다. 발송되지 않은 스케줄만 수정 가능합니다."""
+    # Find the schedule
+    result = await db.execute(
+        select(TrainingSchedule).where(TrainingSchedule.id == schedule_id)
+    )
+    schedule = result.scalar_one_or_none()
+    
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    if schedule.is_sent:
+        raise HTTPException(status_code=400, detail="Cannot modify a schedule that has already been sent")
+    
+    # Validate scenario if provided
+    if request.scenario_id:
+        scenario_result = await db.execute(
+            select(PhishingScenario).where(PhishingScenario.id == request.scenario_id)
+        )
+        if not scenario_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Invalid scenario_id")
+    
+    # Update only provided fields
+    update_data = request.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(schedule, field, value)
+    
+    await db.commit()
+    await db.refresh(schedule)
+    
+    return {
+        "message": "Schedule updated successfully",
+        "schedule": {
+            "id": schedule.id,
+            "title": schedule.title,
+            "scheduled_date": schedule.scheduled_date.isoformat(),
+            "scenario_id": schedule.scenario_id
+        }
+    }
+
+
+@router.delete("/schedule/{schedule_id}")
+async def delete_schedule(
+    schedule_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """훈련 스케줄을 삭제합니다. 발송되지 않은 스케줄만 삭제 가능합니다."""
+    # Find the schedule
+    result = await db.execute(
+        select(TrainingSchedule).where(TrainingSchedule.id == schedule_id)
+    )
+    schedule = result.scalar_one_or_none()
+    
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    if schedule.is_sent:
+        raise HTTPException(status_code=400, detail="Cannot delete a schedule that has already been sent")
+    
+    await db.delete(schedule)
+    await db.commit()
+    
+    return {"message": "Schedule deleted successfully", "deleted_id": schedule_id}
 
 
 @router.get("/stats/scenario")

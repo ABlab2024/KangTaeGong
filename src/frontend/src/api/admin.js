@@ -117,4 +117,20 @@ export const adminApi = {
         const response = await client.get('/admin/stats/scenario');
         return response.data;
     },
+
+    /**
+     * 훈련 스케줄 수정 (미발송 스케줄만 가능)
+     */
+    updateSchedule: async (scheduleId, data) => {
+        const response = await client.put(`/admin/schedule/${scheduleId}`, data);
+        return response.data;
+    },
+
+    /**
+     * 훈련 스케줄 삭제 (미발송 스케줄만 가능)
+     */
+    deleteSchedule: async (scheduleId) => {
+        const response = await client.delete(`/admin/schedule/${scheduleId}`);
+        return response.data;
+    },
 };

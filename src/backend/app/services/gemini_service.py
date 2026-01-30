@@ -76,25 +76,45 @@ class GeminiService:
         occupation: str,
         location: str
     ) -> str:
-        # ... (keep existing implementation)
         """사용자 프로필을 분석하여 피싱/스캠 취약점을 분석합니다."""
         all_prefs = user_preferences + augmented_preferences
-        prompt = f"""
-당신은 사이버 보안 전문가입니다. 아래 사용자의 프로필을 분석하여 피싱/스캠에 취약할 수 있는 포인트를 상세히 분석해주세요.
+        prefs_list = '\n'.join([f"- {pref}" for pref in all_prefs]) if all_prefs else "- (관심사 없음)"
+        
+        prompt = f"""당신은 피싱/스캠 예방 전문 사이버 보안 분석가입니다. 
+아래 사용자의 프로필과 관심사를 분석하여, **각 관심사가 어떤 피싱/스캠 공격에 취약해질 수 있는지** 구체적으로 분석해주세요.
 
 ## 사용자 프로필
-- 연령대: {age_group}
-- 직업: {occupation}
-- 거주지: {location}
-- 관심 분야: {', '.join(all_prefs)}
+- **연령대**: {age_group}
+- **직업**: {occupation}
+- **거주지**: {location}
+
+## 사용자가 선택한 관심사
+{prefs_list}
+
+---
 
 ## 분석 요청사항
-1. **취약 유형 분석**: 이 사용자가 특히 취약할 수 있는 피싱/스캠 유형 3가지
-2. **위험 시나리오**: 각 유형별로 실제로 당할 수 있는 구체적인 시나리오
-3. **주의사항**: 이 사용자가 특별히 주의해야 할 점
-4. **예방 팁**: 맞춤형 예방 방법 3가지
 
-마크다운 형식으로 상세하게 작성해주세요.
+### 1. 관심사별 피싱/스캠 취약점 분석
+각 관심사를 기반으로 사용자가 노출될 수 있는 피싱/스캠 유형을 분석해주세요. 예를 들어:
+- "쇼핑" 관심 → 가짜 쇼핑몰, 배송 피싱, 결제 사기
+- "재테크" 관심 → 투자 사기, 가짜 주식/코인 앱, 고수익 미끼
+- "게임" 관심 → 게임 아이템 사기, 계정 탈취, 무료 아이템 피싱
+- "취업" 관심 → 가짜 채용공고, 이력서 개인정보 탈취
+
+### 2. 사용자에게 가장 위험한 피싱 시나리오 TOP 3
+이 사용자가 실제로 속기 쉬운 구체적인 피싱 시나리오를 3가지 제시해주세요.
+각 시나리오에는 다음을 포함:
+- 받을 수 있는 메시지/이메일 예시 (한두 문장)
+- 왜 이 사용자가 속기 쉬운지 설명
+- 빨간 신호(Red Flag)가 무엇인지
+
+### 3. 맞춤형 예방 수칙
+이 사용자가 특히 주의해야 할 점과 실천 가능한 예방 방법 3-5가지를 제시해주세요.
+
+---
+
+마크다운 형식으로 읽기 쉽게 작성해주세요. 이모지를 적절히 활용하고, 중요한 부분은 **굵게** 표시해주세요.
 """
         try:
             response = self.client.models.generate_content(
@@ -102,13 +122,58 @@ class GeminiService:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.7,
-                    max_output_tokens=1500
+                    max_output_tokens=4000
                 )
             )
             return response.text
         except Exception as e:
             logger.error(f"Gemini vulnerability analysis error: {e}")
             return "취약점 분석을 수행할 수 없습니다. 나중에 다시 시도해주세요."
+
+    async def summarize_vulnerability_analysis(
+        self,
+        full_analysis: str,
+        user_preferences: List[str]
+    ) -> str:
+        """상세 취약점 분석을 3-4문장의 핵심 요약으로 변환합니다."""
+        prefs_text = ', '.join(user_preferences) if user_preferences else "일반"
+        
+        prompt = f"""당신은 사이버 보안 전문가입니다. 아래의 상세 취약점 분석을 사용자가 대시보드에서 한 눈에 파악할 수 있도록 **핵심만 담은 3-4문장 요약**으로 작성해주세요.
+
+## 사용자 관심사
+{prefs_text}
+
+## 상세 분석
+{full_analysis}
+
+---
+
+## 요약 작성 규칙
+1. **첫 문장**: 이 사용자가 가장 취약한 피싱/스캠 유형 2-3개를 명확히 언급
+2. **두 번째 문장**: 왜 취약한지 관심사와 연결하여 설명
+3. **세 번째 문장**: 가장 주의해야 할 구체적인 공격 패턴 설명
+4. **네 번째 문장 (선택)**: 핵심 예방 수칙
+
+## 출력 형식
+- 이모지 사용 금지
+- 마크다운 형식 사용 금지
+- 순수 텍스트로 3-4문장 출력
+- 각 문장을 완전하게 작성 (중간에 자르지 않음)
+"""
+        try:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.5,
+                    max_output_tokens=500
+                )
+            )
+            summary = response.text.strip()
+            return summary
+        except Exception as e:
+            logger.error(f"Gemini vulnerability summary error: {e}")
+            return None
 
     async def generate_phishing_scenario(
         self,
@@ -307,19 +372,24 @@ class GeminiService:
         target_preferences: List[str]
     ) -> str:
         """피싱 훈련용 더미 페이지 HTML을 생성합니다."""
-        prompt = f"""
-피싱 예방 훈련용 더미 웹페이지 HTML을 생성해주세요.
+        prompt = f"""피싱 예방 훈련용 더미 웹페이지 HTML을 생성해주세요.
 
-시나리오 유형: {scenario_type}
-타겟 관심사: {', '.join(target_preferences)}
+시나리오: {scenario_type}
+컨텍스트: {', '.join(target_preferences)}
 
 요구사항:
-1. 실제 피싱 페이지처럼 보이는 로그인/입력 폼
-2. 반응형 디자인
-3. 폼 제출 시 /api/v1/track/submit/{{simulation_id}} 로 POST 요청
-4. 교육 목적임을 나타내는 숨겨진 주석
+1. 실제 유명 서비스의 로그인 페이지처럼 보이는 전문적인 디자인
+2. 로그인 폼 포함 (이메일/아이디, 비밀번호 필드)
+3. 반응형 디자인 (모바일 호환)
+4. 세련된 CSS 스타일 (그라데이션, 그림자, 깔끔한 버튼)
+5. 폼에 action="javascript:void(0)" method="POST" 속성 포함
+6. 모든 CSS는 인라인 또는 <style> 태그 내부에
+7. 외부 리소스(이미지, 폰트 등) 사용 금지 - 순수 HTML/CSS만
 
-HTML 코드만 출력하세요.
+중요: 
+- HTML 코드만 출력하세요. 마크다운 코드블록(```)이나 설명 없이 순수 HTML만 출력하세요.
+- <!DOCTYPE html>로 시작하는 완전한 HTML 문서를 출력하세요.
+- JavaScript 트래킹 코드는 서버에서 자동 삽입되므로 포함하지 마세요.
 """
         try:
             response = self.client.models.generate_content(
@@ -327,7 +397,13 @@ HTML 코드만 출력하세요.
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.8,
-                    max_output_tokens=3000
+                    max_output_tokens=4000,
+                    safety_settings=[
+                        types.SafetySetting(
+                            category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                            threshold="BLOCK_NONE"
+                        ),
+                    ]
                 )
             )
             return response.text

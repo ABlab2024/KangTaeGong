@@ -36,6 +36,13 @@ export default function Admin() {
 
     // Training Detail Modal State
     const [selectedTraining, setSelectedTraining] = useState(null);
+    const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+    const [editScheduleForm, setEditScheduleForm] = useState({
+        title: '',
+        date: '',
+        time: '',
+        scenario_id: ''
+    });
 
     // Queries
     const { data: users, isLoading: usersLoading, refetch: refetchUsers } = useQuery({
@@ -126,6 +133,30 @@ export default function Admin() {
         },
     });
 
+    const updateScheduleMutation = useMutation({
+        mutationFn: ({ scheduleId, data }) => adminApi.updateSchedule(scheduleId, data),
+        onSuccess: () => {
+            alert('스케줄이 수정되었습니다.');
+            refetchSchedule();
+            setIsEditingSchedule(false);
+        },
+        onError: (err) => {
+            alert('스케줄 수정 실패: ' + err.message);
+        },
+    });
+
+    const deleteScheduleMutation = useMutation({
+        mutationFn: (scheduleId) => adminApi.deleteSchedule(scheduleId),
+        onSuccess: () => {
+            alert('스케줄이 삭제되었습니다.');
+            refetchSchedule();
+            setSelectedTraining(null);
+        },
+        onError: (err) => {
+            alert('스케줄 삭제 실패: ' + err.message);
+        },
+    });
+
     const handleLogin = (e) => {
         e.preventDefault();
         loginMutation.mutate();
@@ -161,11 +192,13 @@ export default function Admin() {
             alert('모든 필드를 입력해주세요.');
             return;
         }
-        const scheduledDate = new Date(`${scheduleDate}T${scheduleTime}:00`);
+        // Send local time directly without UTC conversion
+        // Format: YYYY-MM-DDTHH:MM:SS (no timezone suffix = treated as local time by backend)
+        const scheduledDateTime = `${scheduleDate}T${scheduleTime}:00`;
         createScheduleMutation.mutate({
             userIds: selectedUserIds,
             scenarioId: selectedScenarioId,
-            scheduledDate: scheduledDate.toISOString(),
+            scheduledDate: scheduledDateTime,
             title: scheduleTitle || null,
         });
     };
@@ -186,6 +219,69 @@ export default function Admin() {
 
     const deselectAllUsers = () => {
         setSelectedUserIds([]);
+    };
+
+    // Schedule editing handlers
+    const handleEditScheduleClick = (training) => {
+        const scheduledDate = new Date(training.items[0]?.scheduled_date);
+        setEditScheduleForm({
+            title: training.title || '',
+            date: scheduledDate.toISOString().split('T')[0],
+            time: scheduledDate.toTimeString().slice(0, 5),
+            scenario_id: training.items[0]?.scenario_id || ''
+        });
+        setIsEditingSchedule(true);
+    };
+
+    const handleSaveSchedule = () => {
+        if (!selectedTraining) return;
+
+        const scheduledDateTime = `${editScheduleForm.date}T${editScheduleForm.time}:00`;
+
+        // Update all schedules in this training group
+        const updatePromises = selectedTraining.items
+            .filter(item => !item.is_sent)
+            .map(item =>
+                updateScheduleMutation.mutateAsync({
+                    scheduleId: item.id,
+                    data: {
+                        title: editScheduleForm.title || null,
+                        scheduled_date: scheduledDateTime,
+                        scenario_id: editScheduleForm.scenario_id || null
+                    }
+                })
+            );
+
+        Promise.all(updatePromises)
+            .then(() => {
+                setSelectedTraining(null);
+            })
+            .catch(() => {
+                // Error already handled in mutation
+            });
+    };
+
+    const handleDeleteScheduleGroup = () => {
+        if (!selectedTraining) return;
+
+        const unsentItems = selectedTraining.items.filter(item => !item.is_sent);
+        if (unsentItems.length === 0) {
+            alert('삭제할 수 있는 스케줄이 없습니다.');
+            return;
+        }
+
+        if (!confirm(`정말로 ${unsentItems.length}개의 스케줄을 삭제하시겠습니까?`)) {
+            return;
+        }
+
+        // Delete all unsent schedules in this group
+        const deletePromises = unsentItems.map(item =>
+            deleteScheduleMutation.mutateAsync(item.id)
+        );
+
+        Promise.all(deletePromises).catch(() => {
+            // Error already handled in mutation
+        });
     };
 
     // Login Screen
@@ -989,8 +1085,8 @@ export default function Admin() {
                             <div className="sticky top-0 bg-gray-900 p-4 border-b border-gray-700 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-lg ${selectedTraining.items.every(i => i.is_sent)
-                                            ? 'bg-green-500/20'
-                                            : 'bg-neon-cyan/20'
+                                        ? 'bg-green-500/20'
+                                        : 'bg-neon-cyan/20'
                                         }`}>
                                         {selectedTraining.items.every(i => i.is_sent) ? (
                                             <Check className="text-green-400" size={20} />
@@ -1066,8 +1162,8 @@ export default function Admin() {
                                             <div
                                                 key={item.id}
                                                 className={`p-3 rounded-lg border flex items-center justify-between ${item.is_sent
-                                                        ? 'bg-green-900/10 border-green-500/20'
-                                                        : 'bg-gray-800/50 border-gray-700'
+                                                    ? 'bg-green-900/10 border-green-500/20'
+                                                    : 'bg-gray-800/50 border-gray-700'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-3">
@@ -1094,12 +1190,115 @@ export default function Admin() {
 
                             {/* Modal Footer */}
                             <div className="p-4 border-t border-gray-700 bg-gray-900">
-                                <Button
-                                    onClick={() => setSelectedTraining(null)}
-                                    className="w-full bg-gray-700 hover:bg-gray-600"
-                                >
-                                    닫기
-                                </Button>
+                                {/* Edit Form - only show for unsent schedules */}
+                                {isEditingSchedule && !selectedTraining.items.every(i => i.is_sent) && (
+                                    <div className="mb-4 space-y-4 p-4 bg-gray-800/50 rounded-lg">
+                                        <h4 className="text-white font-medium flex items-center gap-2">
+                                            <Edit3 size={16} /> 스케줄 수정
+                                        </h4>
+                                        <div>
+                                            <label className="block text-gray-400 text-sm mb-1">훈련 제목</label>
+                                            <Input
+                                                type="text"
+                                                value={editScheduleForm.title}
+                                                onChange={(e) => setEditScheduleForm({ ...editScheduleForm, title: e.target.value })}
+                                                className="bg-gray-700 border-gray-600"
+                                                placeholder="훈련 제목"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-gray-400 text-sm mb-1">날짜</label>
+                                                <Input
+                                                    type="date"
+                                                    value={editScheduleForm.date}
+                                                    onChange={(e) => setEditScheduleForm({ ...editScheduleForm, date: e.target.value })}
+                                                    className="bg-gray-700 border-gray-600"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-400 text-sm mb-1">시간</label>
+                                                <Input
+                                                    type="time"
+                                                    value={editScheduleForm.time}
+                                                    onChange={(e) => setEditScheduleForm({ ...editScheduleForm, time: e.target.value })}
+                                                    className="bg-gray-700 border-gray-600"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-400 text-sm mb-1">시나리오</label>
+                                            <select
+                                                value={editScheduleForm.scenario_id}
+                                                onChange={(e) => setEditScheduleForm({ ...editScheduleForm, scenario_id: e.target.value })}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                            >
+                                                <option value="">시나리오 선택</option>
+                                                {scenarios?.map((s) => (
+                                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={handleSaveSchedule}
+                                                disabled={updateScheduleMutation.isPending}
+                                                className="flex-1 bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30"
+                                            >
+                                                {updateScheduleMutation.isPending ? (
+                                                    <Loader2 className="animate-spin mr-2" size={16} />
+                                                ) : (
+                                                    <Save className="mr-2" size={16} />
+                                                )}
+                                                저장
+                                            </Button>
+                                            <Button
+                                                onClick={() => setIsEditingSchedule(false)}
+                                                variant="ghost"
+                                                className="flex-1"
+                                            >
+                                                취소
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2">
+                                    {!selectedTraining.items.every(i => i.is_sent) && !isEditingSchedule && (
+                                        <>
+                                            <Button
+                                                onClick={() => handleEditScheduleClick(selectedTraining)}
+                                                className="flex-1 bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30"
+                                            >
+                                                <Edit3 className="mr-2" size={16} />
+                                                수정
+                                            </Button>
+                                            <Button
+                                                onClick={handleDeleteScheduleGroup}
+                                                disabled={deleteScheduleMutation.isPending}
+                                                className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                                            >
+                                                {deleteScheduleMutation.isPending ? (
+                                                    <Loader2 className="animate-spin mr-2" size={16} />
+                                                ) : (
+                                                    <X className="mr-2" size={16} />
+                                                )}
+                                                삭제
+                                            </Button>
+                                        </>
+                                    )}
+                                    <Button
+                                        onClick={() => {
+                                            setSelectedTraining(null);
+                                            setIsEditingSchedule(false);
+                                        }}
+                                        className={`bg-gray-700 hover:bg-gray-600 ${selectedTraining.items.every(i => i.is_sent) || isEditingSchedule ? 'w-full' : 'flex-1'
+                                            }`}
+                                    >
+                                        닫기
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>

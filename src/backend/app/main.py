@@ -7,11 +7,20 @@ from app.api.v1.endpoints import threats, auth, users, simulation, survey, admin
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler - initialize DB on startup"""
+    """Application lifespan handler - initialize DB and scheduler on startup"""
     from app.db.init_db import init_db, seed_categories
+    from app.services.scheduler import start_scheduler, stop_scheduler
+    
     await init_db()
     await seed_categories()
+    
+    # 백그라운드 스케쥴러 시작
+    start_scheduler()
+    
     yield
+    
+    # 백그라운드 스케쥴러 종료
+    stop_scheduler()
 
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)

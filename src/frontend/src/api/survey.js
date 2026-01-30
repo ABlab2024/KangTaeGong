@@ -30,9 +30,12 @@ export const surveyApi = {
 
     /**
      * 취약점 분석 결과 조회
+     * @param {boolean} refresh - true이면 새로 분석을 생성합니다
      */
-    getVulnerabilityAnalysis: async () => {
-        const response = await client.get('/survey/vulnerability');
+    getVulnerabilityAnalysis: async (refresh = false) => {
+        const response = await client.get('/survey/vulnerability', {
+            params: { refresh }
+        });
         return response.data;
     },
 

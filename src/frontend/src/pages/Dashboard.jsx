@@ -204,13 +204,28 @@ export default function Dashboard() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        {/* Summary Text */}
-                                        <div className="p-4 bg-black/20 rounded-lg border border-white/5">
-                                            <p className="text-sm text-gray-300 leading-relaxed">
-                                                {ranking?.vulnerability_summary ||
-                                                    "아직 취약점 분석이 진행되지 않았습니다. 설문조사를 완료하면 AI가 당신의 관심사와 행동 패턴을 분석하여 피싱/스캠에 취약한 영역을 파악해드립니다."}
-                                            </p>
-                                        </div>
+                                        {/* AI Summary */}
+                                        {ranking?.vulnerability_summary ? (
+                                            <div className="p-4 bg-gradient-to-r from-orange-500/10 to-red-500/5 rounded-lg border border-orange-500/20">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="p-2 bg-orange-500/20 rounded-full flex-shrink-0">
+                                                        <Target className="w-4 h-4 text-orange-400" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-orange-300 mb-1">AI 분석 요약</p>
+                                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                                            {ranking.vulnerability_summary}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="p-4 bg-black/20 rounded-lg border border-white/5">
+                                                <p className="text-sm text-gray-300 leading-relaxed">
+                                                    아직 취약점 분석이 진행되지 않았습니다. 설문조사를 완료하면 AI가 당신의 관심사와 행동 패턴을 분석하여 피싱/스캠에 취약한 영역을 파악해드립니다.
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {/* Last Caught Warning */}
                                         {ranking?.last_caught_type && (
@@ -228,7 +243,7 @@ export default function Dashboard() {
                                             </div>
                                         )}
 
-                                        {/* Tips */}
+                                        {/* Quick Tips */}
                                         <div className="space-y-2 mb-4">
                                             <p className="text-xs text-gray-500 uppercase tracking-wider">주의 사항</p>
                                             <ul className="text-xs text-gray-400 space-y-1">

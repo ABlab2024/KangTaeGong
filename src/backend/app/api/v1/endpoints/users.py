@@ -153,14 +153,19 @@ async def get_user_ranking(
         select(UserProfile).where(UserProfile.user_id == user_id)
     )
     profile = profile_result.scalar_one_or_none()
+    
+    # Use the pre-generated summary, or extract first line as fallback
     vulnerability_summary = None
-    if profile and profile.vulnerability_analysis:
-        # Extract first paragraph as summary
-        lines = profile.vulnerability_analysis.split('\n')
-        for line in lines:
-            if line.strip() and not line.startswith('#'):
-                vulnerability_summary = line.strip()[:150] + "..." if len(line.strip()) > 150 else line.strip()
-                break
+    if profile:
+        if profile.vulnerability_summary:
+            vulnerability_summary = profile.vulnerability_summary
+        elif profile.vulnerability_analysis:
+            # Fallback: extract first non-header line
+            lines = profile.vulnerability_analysis.split('\n')
+            for line in lines:
+                if line.strip() and not line.startswith('#'):
+                    vulnerability_summary = line.strip()[:150] + "..." if len(line.strip()) > 150 else line.strip()
+                    break
     
     # Calculate overall ranking (by security score, descending)
     overall_result = await db.execute(

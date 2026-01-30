@@ -18,6 +18,7 @@ class UserProfile(Base):
     content_preferences = Column(Text, default="[]")  # JSON string for SQLite
     augmented_preferences = Column(Text, default="[]")  # LLM augmented preferences
     vulnerability_analysis = Column(Text, nullable=True)  # LLM profiling result
+    vulnerability_summary = Column(Text, nullable=True)  # Short summary for dashboard
     onboarding_completed = Column(Boolean, default=False)
     augmentation_count = Column(Integer, default=0)  # LLM augmentation iteration count
     created_at = Column(DateTime, default=datetime.utcnow)

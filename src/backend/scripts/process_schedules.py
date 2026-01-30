@@ -64,8 +64,9 @@ def personalize_email_body(
 
 async def process_pending_schedules():
     """대기 중인 훈련 스케줄을 처리합니다."""
-    now = datetime.utcnow()
-    print(f"🕐 현재 시간(UTC): {now.isoformat()}")
+    # Use local time since schedules are stored in local time (not UTC)
+    now = datetime.now()
+    print(f"🕐 현재 시간(Local): {now.isoformat()}")
     
     async with AsyncSessionLocal() as db:
         # 발송 대기 중인 스케줄 조회 (scheduled_date <= now AND is_sent = False)

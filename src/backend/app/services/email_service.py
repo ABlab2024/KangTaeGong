@@ -61,7 +61,17 @@ class EmailService:
         try:
             # 링크를 추적 링크로 변환
             if dummy_page_url:
-                tracked_link = self._wrap_link(dummy_page_url, simulation_id)
+                # Handle internal dummy page URL pattern
+                if dummy_page_url.startswith("__INTERNAL__:"):
+                    # Convert internal pattern to actual URL
+                    # Pattern: __INTERNAL__:/api/v1/track/page/{simulation_id}
+                    internal_path = dummy_page_url.replace("__INTERNAL__:", "")
+                    internal_path = internal_path.replace("{simulation_id}", simulation_id)
+                    actual_dummy_url = f"{self.backend_url}{internal_path}"
+                else:
+                    actual_dummy_url = dummy_page_url
+                
+                tracked_link = self._wrap_link(actual_dummy_url, simulation_id)
                 body_html = body_html.replace("{link}", tracked_link)
             
             # 트래킹 픽셀 추가
