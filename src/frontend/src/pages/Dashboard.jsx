@@ -186,89 +186,163 @@ export default function Dashboard() {
                         </Card>
                     </motion.div>
 
-                    {/* Vulnerability Summary Card - Extended */}
+                    {/* Vulnerability Summary Card - Interactive & Engaging Design */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.3 }}
                         className="md:col-span-2 md:row-span-2"
                     >
-                        <Card className="h-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/30">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2 text-orange-400">
-                                    <AlertCircle className="w-5 h-5" />
-                                    내 취약 포인트 분석
+                        <Card className="h-full bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 border-purple-500/30 overflow-hidden relative">
+                            {/* Decorative Background Elements */}
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                                <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl" />
+                                <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-pink-500/10 rounded-full blur-2xl" />
+                            </div>
+
+                            <CardHeader className="relative z-10">
+                                <CardTitle className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-purple-400">
+                                        <div className="p-2 bg-purple-500/20 rounded-lg">
+                                            <Target className="w-5 h-5" />
+                                        </div>
+                                        <span>내 취약 포인트 분석</span>
+                                    </div>
+                                    {/* Security Badge */}
+                                    <motion.div
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: 0.5, type: "spring" }}
+                                        className={`px-3 py-1 rounded-full text-xs font-bold ${(ranking?.defense_rate || 100) >= 80
+                                                ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white'
+                                                : (ranking?.defense_rate || 100) >= 50
+                                                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white'
+                                                    : 'bg-gradient-to-r from-red-500 to-pink-500 text-white'
+                                            }`}
+                                    >
+                                        {(ranking?.defense_rate || 100) >= 80 ? '🛡️ 안전' : (ranking?.defense_rate || 100) >= 50 ? '⚠️ 주의' : '🚨 위험'}
+                                    </motion.div>
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
+
+                            <CardContent className="relative z-10">
                                 {rankingLoading ? (
-                                    <div className="flex justify-center py-8">
-                                        <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+                                    <div className="flex flex-col items-center justify-center py-8 gap-3">
+                                        <Loader2 className="w-10 h-10 animate-spin text-purple-400" />
+                                        <p className="text-sm text-gray-400">분석 중...</p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        {/* AI Summary */}
+                                    <div className="space-y-5">
+                                        {/* Security Level Meter */}
+                                        <div className="p-4 bg-black/30 rounded-xl border border-white/5">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-sm text-gray-400">보안 레벨</span>
+                                                <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                                                    {ranking?.defense_rate || 100}%
+                                                </span>
+                                            </div>
+                                            <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${ranking?.defense_rate || 100}%` }}
+                                                    transition={{ delay: 0.6, duration: 1, ease: "easeOut" }}
+                                                    className={`h-full rounded-full ${(ranking?.defense_rate || 100) >= 80
+                                                            ? 'bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500'
+                                                            : (ranking?.defense_rate || 100) >= 50
+                                                                ? 'bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500'
+                                                                : 'bg-gradient-to-r from-red-600 via-pink-600 to-purple-600'
+                                                        }`}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between mt-2 text-xs text-gray-500">
+                                                <span>위험</span>
+                                                <span>안전</span>
+                                            </div>
+                                        </div>
+
+                                        {/* AI Insight Card */}
                                         {ranking?.vulnerability_summary ? (
-                                            <div className="p-4 bg-gradient-to-r from-orange-500/10 to-red-500/5 rounded-lg border border-orange-500/20">
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.7 }}
+                                                className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20 hover:border-purple-500/40 transition-all cursor-pointer group"
+                                            >
                                                 <div className="flex items-start gap-3">
-                                                    <div className="p-2 bg-orange-500/20 rounded-full flex-shrink-0">
-                                                        <Target className="w-4 h-4 text-orange-400" />
+                                                    <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform">
+                                                        <AlertCircle className="w-4 h-4 text-white" />
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-orange-300 mb-1">AI 분석 요약</p>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                                                            ✨ AI 인사이트
+                                                        </p>
                                                         <p className="text-sm text-gray-300 leading-relaxed">
                                                             {ranking.vulnerability_summary}
                                                         </p>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </motion.div>
                                         ) : (
-                                            <div className="p-4 bg-black/20 rounded-lg border border-white/5">
-                                                <p className="text-sm text-gray-300 leading-relaxed">
-                                                    아직 취약점 분석이 진행되지 않았습니다. 설문조사를 완료하면 AI가 당신의 관심사와 행동 패턴을 분석하여 피싱/스캠에 취약한 영역을 파악해드립니다.
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* Last Caught Warning */}
-                                        {ranking?.last_caught_type && (
-                                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                                <div className="flex items-start gap-3">
-                                                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.7 }}
+                                                className="p-4 bg-gradient-to-r from-slate-800/50 to-slate-700/30 rounded-xl border border-white/10"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-gray-700 rounded-lg">
+                                                        <Shield className="w-4 h-4 text-gray-400" />
+                                                    </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-red-400">최근 속은 피싱 유형</p>
-                                                        <p className="text-xs text-gray-400 mt-1">{ranking.last_caught_type}</p>
-                                                        <p className="text-xs text-gray-500 mt-2">
-                                                            이 유형의 피싱 메시지를 더욱 주의하세요.
+                                                        <p className="text-sm text-gray-300">
+                                                            설문조사를 완료하면 AI가 맞춤 분석을 제공합니다
                                                         </p>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </motion.div>
                                         )}
 
-                                        {/* Quick Tips */}
-                                        <div className="space-y-2 mb-4">
-                                            <p className="text-xs text-gray-500 uppercase tracking-wider">주의 사항</p>
-                                            <ul className="text-xs text-gray-400 space-y-1">
-                                                <li className="flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
-                                                    의심스러운 링크는 클릭하기 전 URL을 확인하세요
-                                                </li>
-                                                <li className="flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
-                                                    개인정보 입력 요청 시 발신자를 재확인하세요
-                                                </li>
-                                                <li className="flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
-                                                    급하게 행동을 요구하는 메시지는 의심하세요
-                                                </li>
-                                            </ul>
-                                        </div>
+                                        {/* Risk Alert - Last Caught */}
+                                        {ranking?.last_caught_type && (
+                                            <motion.div
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: 0.8 }}
+                                                className="p-4 bg-gradient-to-r from-red-500/20 to-orange-500/10 rounded-xl border border-red-500/30 hover:border-red-500/50 transition-all"
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <motion.div
+                                                        animate={{ scale: [1, 1.1, 1] }}
+                                                        transition={{ repeat: Infinity, duration: 2 }}
+                                                        className="p-2 bg-red-500/30 rounded-lg"
+                                                    >
+                                                        <AlertTriangle className="w-4 h-4 text-red-400" />
+                                                    </motion.div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-semibold text-red-400 mb-1">🎯 주의 필요 유형</p>
+                                                        <p className="text-xs text-gray-300 bg-red-500/10 px-2 py-1 rounded inline-block">
+                                                            {ranking.last_caught_type}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
 
-                                        <Link to="/analysis">
-                                            <Button variant="outline" size="sm" className="w-full border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
-                                                상세 분석 보기 <ChevronRight className="w-4 h-4 ml-1" />
-                                            </Button>
+                                        {/* Action Button */}
+                                        <Link to="/analysis" className="block">
+                                            <motion.div
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="w-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/50 text-purple-300 hover:bg-purple-500/20 hover:text-white transition-all group"
+                                                >
+                                                    <span>상세 분석 보기</span>
+                                                    <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                                                </Button>
+                                            </motion.div>
                                         </Link>
                                     </div>
                                 )}
