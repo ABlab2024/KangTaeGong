@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Header from '@/components/layout/Header';
@@ -7,13 +7,16 @@ import { Button } from '@/components/ui/Button';
 import {
     AlertTriangle, Shield,
     Loader2, Bell, ExternalLink, Trophy, Target,
-    AlertCircle, Newspaper, ChevronRight
+    AlertCircle, Newspaper, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getThreats } from '@/api/simulation';
 import { getUserRanking } from '@/api/users';
 
 export default function Dashboard() {
+    // Number of news items to display
+    const [newsCount, setNewsCount] = useState(3);
+
     // Fetch ranking and stats
     const { data: ranking, isLoading: rankingLoading } = useQuery({
         queryKey: ['userRanking'],
@@ -21,10 +24,10 @@ export default function Dashboard() {
         staleTime: 30000,
     });
 
-    // Fetch phishing news (threats)
+    // Fetch phishing news (threats) - load more for "show more" feature
     const { data: news, isLoading: newsLoading } = useQuery({
         queryKey: ['phishingNews'],
-        queryFn: () => getThreats(0, 5),
+        queryFn: () => getThreats(0, 20),
         staleTime: 60000,
     });
 
@@ -294,42 +297,65 @@ export default function Dashboard() {
                                             <Loader2 className="w-8 h-8 animate-spin text-neon-cyan" />
                                         </div>
                                     ) : news?.length > 0 ? (
-                                        news.map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors cursor-pointer"
-                                            >
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-2 h-2 mt-2 rounded-full bg-neon-cyan flex-shrink-0" />
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="text-sm font-medium text-white truncate">
-                                                            {item.source_url?.split('/').pop() || '피싱 뉴스'}
-                                                        </h4>
-                                                        <p className="text-xs text-gray-400 line-clamp-2 mt-1">
-                                                            {item.raw_text}
-                                                        </p>
-                                                        <div className="flex items-center gap-2 mt-2">
-                                                            <span className="text-xs px-2 py-0.5 rounded bg-neon-cyan/10 text-neon-cyan">
-                                                                {item.analysis_json?.type || 'News'}
-                                                            </span>
-                                                            <span className="text-xs text-gray-500">
-                                                                {new Date(item.collected_at).toLocaleDateString('ko-KR')}
-                                                            </span>
+                                        <>
+                                            {news.slice(0, newsCount).map((item) => {
+                                                // Get title: use title field, or first sentence of raw_text, or fallback
+                                                const getTitle = () => {
+                                                    if (item.title) return item.title;
+                                                    if (item.raw_text) {
+                                                        const firstSentence = item.raw_text.split(/[.!?。]/)[0];
+                                                        return firstSentence.length > 60
+                                                            ? firstSentence.substring(0, 60) + '...'
+                                                            : firstSentence;
+                                                    }
+                                                    return '피싱/스캠 뉴스';
+                                                };
+
+                                                return (
+                                                    <a
+                                                        key={item.id}
+                                                        href={item.source_url || '#'}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors cursor-pointer group"
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="w-2 h-2 mt-2 rounded-full bg-neon-cyan flex-shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <h4 className="text-sm font-medium text-white line-clamp-2 group-hover:text-neon-cyan transition-colors">
+                                                                    {getTitle()}
+                                                                </h4>
+                                                                <p className="text-xs text-gray-400 line-clamp-2 mt-1">
+                                                                    {item.raw_text}
+                                                                </p>
+                                                                <div className="flex items-center gap-2 mt-2">
+                                                                    <span className="text-xs px-2 py-0.5 rounded bg-neon-cyan/10 text-neon-cyan">
+                                                                        {item.analysis_json?.type || 'News'}
+                                                                    </span>
+                                                                    <span className="text-xs text-gray-500">
+                                                                        {new Date(item.collected_at).toLocaleDateString('ko-KR')}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-neon-cyan flex-shrink-0 transition-colors" />
                                                         </div>
-                                                    </div>
-                                                    {item.source_url && (
-                                                        <a
-                                                            href={item.source_url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-gray-500 hover:text-neon-cyan"
-                                                        >
-                                                            <ExternalLink className="w-4 h-4" />
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
+                                                    </a>
+                                                );
+                                            })}
+
+                                            {/* Show more button */}
+                                            {news.length > newsCount && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="w-full text-gray-400 hover:text-neon-cyan hover:bg-white/5"
+                                                    onClick={() => setNewsCount(prev => Math.min(prev + 5, news.length))}
+                                                >
+                                                    <ChevronDown className="w-4 h-4 mr-2" />
+                                                    더보기 ({news.length - newsCount}개 더)
+                                                </Button>
+                                            )}
+                                        </>
                                     ) : (
                                         <div className="text-center py-8 text-gray-500">
                                             <Newspaper className="w-12 h-12 mx-auto mb-3 opacity-50" />

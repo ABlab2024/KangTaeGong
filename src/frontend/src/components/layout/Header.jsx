@@ -2,15 +2,46 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/Button";
 import { ShieldCheck, LogIn, User, FileText, RefreshCw, LogOut, ChevronDown, Settings } from 'lucide-react';
+import { authApi } from '@/api/auth';
 
 export default function Header() {
     const navigate = useNavigate();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userEmail, setUserEmail] = useState('사용자');
+    const [isVerifying, setIsVerifying] = useState(true);
     const dropdownRef = useRef(null);
 
-    const token = localStorage.getItem('access_token');
-    const userEmail = localStorage.getItem('user_email') || '사용자';
-    const isLoggedIn = !!token;
+    // 앱 시작 시 토큰 유효성 검증
+    useEffect(() => {
+        const verifyToken = async () => {
+            const token = localStorage.getItem('access_token');
+            const storedEmail = localStorage.getItem('user_email');
+
+            if (!token) {
+                setIsLoggedIn(false);
+                setIsVerifying(false);
+                return;
+            }
+
+            try {
+                // 토큰 유효성 검증을 위해 /users/me 호출
+                const userData = await authApi.getMe();
+                setIsLoggedIn(true);
+                setUserEmail(userData.email || storedEmail || '사용자');
+            } catch (error) {
+                // 토큰이 유효하지 않으면 localStorage 초기화
+                console.log('Token validation failed, clearing auth data');
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_email');
+                setIsLoggedIn(false);
+            } finally {
+                setIsVerifying(false);
+            }
+        };
+
+        verifyToken();
+    }, []);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -46,7 +77,10 @@ export default function Header() {
                 </Link>
 
                 <nav className="flex items-center gap-6">
-                    {isLoggedIn ? (
+                    {isVerifying ? (
+                        // 검증 중일 때는 빈 상태 표시
+                        <div className="w-20 h-8" />
+                    ) : isLoggedIn ? (
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
