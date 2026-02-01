@@ -197,26 +197,296 @@ async def serve_dummy_page(
     scenario = scenario_result.scalar_one_or_none()
     
     if not scenario or not scenario.dummy_page_html:
-        # Return default training page if no dummy page exists
+        # Return comprehensive phishing warning page if no dummy page exists
         return HTMLResponse(content="""
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>확인 페이지</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚠️ 피싱/스캠 경고 - 강태공</title>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; }
-        .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 400px; text-align: center; }
-        h1 { color: #e74c3c; }
-        p { color: #333; line-height: 1.6; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        /* 경고 헤더 */
+        .warning-header {
+            background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(211, 47, 47, 0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.01); }
+        }
+        .warning-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        .warning-header h1 {
+            color: #fff;
+            font-size: 2rem;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .warning-header p {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        .training-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 20px;
+            border-radius: 30px;
+            margin-top: 15px;
+            font-weight: bold;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        /* 섹션 스타일 */
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .section-title {
+            color: #00f3ff;
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title .icon {
+            font-size: 1.6rem;
+        }
+        
+        /* 위험성 안내 */
+        .danger-list {
+            list-style: none;
+        }
+        .danger-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .danger-list li:last-child {
+            border-bottom: none;
+        }
+        .danger-list .bullet {
+            color: #ff5252;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        /* 피해 사례 카드 */
+        .case-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+        }
+        .case-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .case-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .case-card .case-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        .case-card h3 {
+            color: #ffd54f;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+        .case-card p {
+            color: #bbb;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .case-card .damage {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255,82,82,0.15);
+            border-radius: 8px;
+            color: #ff8a80;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        /* 식별 팁 */
+        .tip-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .tip-item {
+            background: rgba(0,243,255,0.08);
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #00f3ff;
+        }
+        .tip-item .tip-icon {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        .tip-item h4 {
+            color: #00f3ff;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        .tip-item p {
+            color: #aaa;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        /* 푸터 */
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        .footer a {
+            color: #00f3ff;
+            text-decoration: none;
+        }
+        .footer .logo {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #00f3ff;
+            margin-bottom: 10px;
+        }
+        
+        /* 반응형 */
+        @media (max-width: 600px) {
+            .warning-header { padding: 30px 20px; }
+            .warning-header h1 { font-size: 1.5rem; }
+            .warning-icon { font-size: 60px; }
+            .section { padding: 20px; }
+            .section-title { font-size: 1.2rem; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>⚠️ 피싱 훈련 알림</h1>
-        <p>이 페이지는 피싱 예방 훈련의 일환입니다.</p>
-        <p>실제 피싱 사이트였다면 귀하의 정보가 탈취될 수 있었습니다.</p>
-        <p style="margin-top: 20px; color: #666;">항상 링크를 클릭하기 전에 발신자와 URL을 확인하세요.</p>
+        <!-- 경고 헤더 -->
+        <div class="warning-header">
+            <div class="warning-icon">🚨</div>
+            <h1>잠깐! 이런 링크는 위험할 수 있습니다</h1>
+            <p>방금 클릭한 링크는 피싱/스캠 공격에서 자주 사용되는 유형입니다.<br>
+            실제 공격이었다면 개인정보나 금융정보가 탈취될 수 있었습니다.</p>
+            <div class="training-badge">🎣 강태공 피싱 예방 훈련</div>
+        </div>
+        
+        <!-- 왜 위험한가 -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">⚠️</span> 이런 링크가 왜 위험한가요?</h2>
+            <ul class="danger-list">
+                <li>
+                    <span class="bullet">❌</span>
+                    <span><strong>긴급함을 강조</strong>하며 빠른 클릭을 유도합니다. ("지금 바로 확인하세요", "계정이 정지됩니다")</span>
+                </li>
+                <li>
+                    <span class="bullet">❌</span>
+                    <span><strong>공식 사이트와 유사한 URL</strong>을 사용해 속입니다. (예: naver-login.com, samsung-event.kr)</span>
+                </li>
+                <li>
+                    <span class="bullet">❌</span>
+                    <span><strong>개인정보 입력을 요청</strong>하는 가짜 로그인 페이지로 연결됩니다.</span>
+                </li>
+                <li>
+                    <span class="bullet">❌</span>
+                    <span><strong>악성코드 설치</strong>를 유도하거나, 클릭만으로 정보를 수집할 수 있습니다.</span>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- 실제 피해 사례 -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">📋</span> 실제 피해 사례</h2>
+            <div class="case-cards">
+                <div class="case-card">
+                    <div class="case-icon">📧</div>
+                    <h3>이메일 피싱 - 은행 사칭</h3>
+                    <p>"OO은행입니다. 보안 업데이트가 필요합니다"라는 이메일을 받고 링크를 클릭해 로그인 정보를 입력한 40대 직장인 A씨.</p>
+                    <div class="damage">💸 피해액: 2,300만원 계좌 이체</div>
+                </div>
+                <div class="case-card">
+                    <div class="case-icon">📱</div>
+                    <h3>SMS 스미싱 - 택배 사칭</h3>
+                    <p>"[CJ대한통운] 배송 주소 확인 필요"라는 문자의 링크를 클릭해 악성앱이 설치된 20대 대학생 B씨.</p>
+                    <div class="damage">📱 피해: 개인정보 유출 + 소액결제 50만원</div>
+                </div>
+                <div class="case-card">
+                    <div class="case-icon">💳</div>
+                    <h3>결제 사기 - 쇼핑몰 사칭</h3>
+                    <p>SNS 광고의 "90% 할인" 링크를 통해 가짜 쇼핑몰에서 결제한 30대 주부 C씨.</p>
+                    <div class="damage">💳 피해: 카드정보 탈취 + 해외결제 180만원</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 피싱 식별 팁 -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">🛡️</span> 피싱 링크 식별하는 방법</h2>
+            <div class="tip-grid">
+                <div class="tip-item">
+                    <div class="tip-icon">🔍</div>
+                    <h4>URL 직접 확인</h4>
+                    <p>링크 위에 마우스를 올려 실제 주소를 확인하세요. 공식 도메인과 다르면 의심하세요.</p>
+                </div>
+                <div class="tip-item">
+                    <div class="tip-icon">👤</div>
+                    <h4>발신자 검증</h4>
+                    <p>이메일 발신자 주소가 공식 도메인(@company.com)인지 확인하세요.</p>
+                </div>
+                <div class="tip-item">
+                    <div class="tip-icon">⏰</div>
+                    <h4>긴급함 의심</h4>
+                    <p>"지금 당장", "24시간 내" 등 급박함을 강조하면 일단 의심하세요.</p>
+                </div>
+                <div class="tip-item">
+                    <div class="tip-icon">🔐</div>
+                    <h4>직접 접속</h4>
+                    <p>중요한 사이트는 링크 대신 직접 주소를 입력하거나 앱을 통해 접속하세요.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 푸터 -->
+        <div class="footer">
+            <div class="logo">🎣 강태공 (KangTaeGong)</div>
+            <p>이 페이지는 피싱 예방 훈련의 일환으로 제공되었습니다.<br>
+            실제 정보는 수집되지 않았으며, 귀하의 정보는 안전합니다.</p>
+        </div>
     </div>
 </body>
 </html>
