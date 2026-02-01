@@ -97,6 +97,20 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ---
 
-## 4. Troubleshooting (문제 해결)
+## 4. AI 분석 기능 (OpenAI/Gemini 키 설정)
+
+피싱 위협 분석이나 자동 답변 생성 등 AI 기능이 필요한 경우, 다음 경로에 API 키를 등록해야 합니다.
+
+### [방법 A] 프론트엔드 직접 연동 (간단한 테스트)
+*   `.env` 파일에 `VITE_OPENAI_API_KEY`를 추가합니다.
+*   **주의**: 이 방식은 브라우저에서 키가 노출될 위험이 있으므로 데모용으로만 권장됩니다.
+
+### [방법 B] Netlify Functions 활용 (보안 권장)
+*   백엔드 서버 없이 보안이 필요한 작업을 할 때 유용합니다.
+*   Netlify **Site configuration > Environment variables**에 `OPENAI_API_KEY`를 등록하세요.
+
+---
+
+## 5. Troubleshooting (문제 해결)
 - **로그인 시 404 에러**: Netlify에 `_redirects` 파일이 정상적으로 배포되었는지 확인하세요.
 - **데이터가 안 보임**: Supabase SQL Editor에서 위 쿼리를 실행했는지, RLS 정책이 적용되었는지 확인하세요.
