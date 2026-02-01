@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = True
-        env_file = str(ROOT_DIR / ".env")
+        env_file = str(ROOT_DIR / ".env") if (ROOT_DIR / ".env").exists() else None
         extra = "ignore"
 
 settings = Settings()

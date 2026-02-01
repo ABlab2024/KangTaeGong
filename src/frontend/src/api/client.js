@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const client = axios.create({
-    baseURL: '/api/v1', // Proxy handles redirection to backend
+    baseURL: import.meta.env.VITE_API_URL || '/api/v1', // Dynamic URL for production
     headers: {
         'Content-Type': 'application/json',
     },
