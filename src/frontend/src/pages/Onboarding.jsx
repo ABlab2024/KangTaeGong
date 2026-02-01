@@ -1,274 +1,445 @@
-import React, { useState, useEffect } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import React, { useState, useMemo } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { surveyApi } from '@/api/survey';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
-import { ChevronRight, ChevronLeft, Loader2, Check, Sparkles } from 'lucide-react';
+import {
+    ChevronRight,
+    ChevronLeft,
+    Loader2,
+    Check,
+    Sparkles,
+    Shield,
+    Star,
+    Smile,
+    Music,
+    Cpu,
+    TrendingUp,
+    Landmark,
+    ShoppingBag,
+    Briefcase,
+    Clapperboard,
+    Search,
+    Layers,
+    PlayCircle,
+    MessageSquare,
+    HelpCircle,
+    User,
+    Tv,
+    Music2,
+    Flame,
+    Camera,
+    Heart,
+    Globe,
+    Mic,
+    Newspaper,
+    Zap,
+    Image as ImageIcon,
+    BookOpen,
+    Hash,
+    Coffee,
+    Music4,
+    Compass,
+    Radio,
+    Mic2,
+    Headphones,
+    Ticket,
+    Disc,
+    PlusSquare,
+    Bot,
+    Terminal,
+    Code,
+    Lock,
+    Rocket,
+    Binary,
+    BarChart,
+    Wallet,
+    Book,
+    LineChart,
+    Coins,
+    Scissors,
+    Umbrella,
+    PieChart,
+    Bell,
+    FileWarning,
+    ShieldAlert,
+    ShoppingCart,
+    Package,
+    Gift,
+    CreditCard,
+    UserPlus
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { V2_SURVEY_DATA } from '@/constants/surveyData';
+
+const ICON_MAP = {
+    clapperboard: Clapperboard,
+    star: Star,
+    smile: Smile,
+    music: Music,
+    cpu: Cpu,
+    "trending-up": TrendingUp,
+    landmark: Landmark,
+    "shopping-bag": ShoppingBag,
+    briefcase: Briefcase,
+    sparkles: Sparkles,
+    search: Search,
+    layers: Layers,
+    "play-circle": PlayCircle,
+    "message-square": MessageSquare,
+    "help-circle": HelpCircle,
+    user: User,
+    tv: Tv,
+    "music-2": Music2,
+    flame: Flame,
+    camera: Camera,
+    heart: Heart,
+    globe: Globe,
+    mic: Mic,
+    newspaper: Newspaper,
+    zap: Zap,
+    image: ImageIcon,
+    "book-open": BookOpen,
+    hash: Hash,
+    coffee: Coffee,
+    "music-4": Music4,
+    compass: Compass,
+    radio: Radio,
+    "mic-2": Mic2,
+    headphones: Headphones,
+    ticket: Ticket,
+    disc: Disc,
+    "plus-square": PlusSquare,
+    bot: Bot,
+    terminal: Terminal,
+    code: Code,
+    lock: Lock,
+    rocket: Rocket,
+    binary: Binary,
+    "bar-chart": BarChart,
+    wallet: Wallet,
+    book: Book,
+    "line-chart": LineChart,
+    coins: Coins,
+    scissors: Scissors,
+    umbrella: Umbrella,
+    "pie-chart": PieChart,
+    bell: Bell,
+    "file-warning": FileWarning,
+    "shield-alert": ShieldAlert,
+    "shopping-cart": ShoppingCart,
+    package: Package,
+    gift: Gift,
+    "credit-card": CreditCard,
+    "user-plus": UserPlus
+};
+
+const Icon = ({ name, size = 20, className = "" }) => {
+    const LucideIcon = ICON_MAP[name] || HelpCircle;
+    return <LucideIcon size={size} className={className} />;
+};
 
 export default function Onboarding() {
     const navigate = useNavigate();
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState(0); // 0: Intro, 1: Basic Info, 2+: Categories, Final: Summary
     const [formData, setFormData] = useState({
         age: '',
         occupation: '',
         location: '',
         sns_homepage: '',
         recent_ai_link: '',
-        content_preferences: [],
+        content_preferences: [], // Stores selected item titles
     });
 
-    // 카테고리 목록 조회 및 그룹화
-    const { data: categories, isLoading: categoriesLoading } = useQuery({
-        queryKey: ['categories'],
-        queryFn: surveyApi.getCategories,
-    });
+    const totalSteps = V2_SURVEY_DATA.length + 2; // Intro + Basic + Categories
 
-    const categoryGroups = React.useMemo(() => {
-        if (!categories) return [];
-        const groups = {};
-        categories.forEach(cat => {
-            const groupName = cat.category_group || '기타';
-            if (!groups[groupName]) groups[groupName] = [];
-            groups[groupName].push(cat);
-        });
-        return Object.entries(groups).map(([name, cats]) => ({
-            group: name,
-            categories: cats
-        }));
-    }, [categories]);
-
-    // 설문 제출 mutation
     const submitMutation = useMutation({
         mutationFn: async () => {
             const payload = {
                 ...formData,
                 age: parseInt(formData.age),
+                onboarding_completed: true
             };
             return await surveyApi.submitSurvey(payload);
         },
-        onSuccess: () => {
-            navigate('/dashboard');
-        },
-        onError: (err) => {
-            alert('설문 제출 실패: ' + err.message);
-        },
+        onSuccess: () => navigate('/dashboard'),
+        onError: (err) => alert('에러 발생: ' + err.message),
     });
 
-    const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    const handleNext = () => setStep(prev => prev + 1);
+    const handleBack = () => setStep(prev => prev - 1);
 
-    const toggleCategory = (categoryName) => {
-        setFormData((prev) => {
+    const toggleItem = (title) => {
+        setFormData(prev => {
             const prefs = prev.content_preferences;
-            if (prefs.includes(categoryName)) {
-                return { ...prev, content_preferences: prefs.filter((c) => c !== categoryName) };
+            if (prefs.includes(title)) {
+                return { ...prev, content_preferences: prefs.filter(t => t !== title) };
             } else {
-                return { ...prev, content_preferences: [...prefs, categoryName] };
+                return { ...prev, content_preferences: [...prefs, title] };
             }
         });
     };
 
-    const isStep1Valid = formData.age && formData.occupation && formData.location;
-    const isStep2Valid = formData.content_preferences.length >= 3;
+    const isBasicValid = formData.age && formData.occupation && formData.location;
 
-    const handleNext = () => {
-        if (step === 1 && isStep1Valid) {
-            setStep(2);
-        } else if (step === 2) {
-            submitMutation.mutate();
-        }
-    };
-
-    const handleBack = () => {
-        if (step > 1) setStep(step - 1);
-    };
-
+    // Render Logic
     return (
-        <div className="min-h-screen bg-void relative overflow-hidden">
-            {/* Background effects */}
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
-            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-cyan/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-magenta/10 rounded-full blur-3xl" />
+        <div className="min-h-screen bg-void text-white relative overflow-hidden font-pretendard">
+            {/* Background Ambience */}
+            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
+            <div className="absolute top-1/4 -left-20 w-96 h-96 bg-neon-cyan/10 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-neon-magenta/10 rounded-full blur-[100px] pointer-events-none" />
 
-            <div className="relative z-10 max-w-3xl mx-auto px-4 py-12">
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center gap-2 mb-4">
-                        <Sparkles className="text-neon-cyan" size={28} />
-                        <h1 className="text-3xl font-bold text-white">맞춤 설정</h1>
+            {/* Header / Progress */}
+            {step > 0 && (
+                <div className="fixed top-0 left-0 w-full p-6 z-50 bg-void/80 backdrop-blur-md border-b border-white/5">
+                    <div className="max-w-4xl mx-auto flex justify-between items-center mb-2">
+                        <span className="text-xs font-bold tracking-widest text-neon-cyan uppercase">
+                            Step {step} of {totalSteps - 1}
+                        </span>
+                        <div className="px-3 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 text-[10px] text-neon-cyan font-bold">
+                            {formData.content_preferences.length} SELECTED
+                        </div>
                     </div>
-                    <p className="text-gray-400">
-                        당신에게 맞는 피싱 시뮬레이션을 제공하기 위해 몇 가지 정보가 필요합니다
-                    </p>
+                    <div className="max-w-4xl mx-auto h-1 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div
+                            className="h-full bg-gradient-to-r from-neon-cyan to-blue-500"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(step / (totalSteps - 1)) * 100}%` }}
+                        />
+                    </div>
                 </div>
+            )}
 
-                {/* Progress bar */}
-                <div className="flex items-center justify-center gap-4 mb-8">
-                    <div className={`w-32 h-1.5 rounded-full transition-colors ${step >= 1 ? 'bg-neon-cyan' : 'bg-gray-700'}`} />
-                    <div className={`w-32 h-1.5 rounded-full transition-colors ${step >= 2 ? 'bg-neon-cyan' : 'bg-gray-700'}`} />
-                </div>
-
-                {/* Step 1: 기본 정보 */}
-                {step === 1 && (
-                    <Card className="border-neon-cyan/20 backdrop-blur-sm bg-void/80">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-full bg-neon-cyan/20 text-neon-cyan flex items-center justify-center text-sm">1</span>
-                                기본 정보
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-sm text-gray-400">나이 *</label>
-                                <Input
-                                    type="number"
-                                    name="age"
-                                    placeholder="예: 25"
-                                    value={formData.age}
-                                    onChange={handleInputChange}
-                                    min={1}
-                                    max={120}
-                                    required
-                                />
+            <div className="container max-w-4xl mx-auto px-4 pt-32 pb-40 relative z-10">
+                <AnimatePresence mode="wait">
+                    {/* STEP 0: INTRO */}
+                    {step === 0 && (
+                        <motion.div
+                            key="intro"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="text-center space-y-8"
+                        >
+                            <div className="w-24 h-24 mx-auto rounded-3xl bg-neon-cyan/20 flex items-center justify-center border border-neon-cyan/30">
+                                <Sparkles className="text-neon-cyan" size={48} />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm text-gray-400">직업 *</label>
-                                <Input
-                                    name="occupation"
-                                    placeholder="예: 대학생, 회사원, 프리랜서"
-                                    value={formData.occupation}
-                                    onChange={handleInputChange}
-                                    required
-                                />
+                            <div className="space-y-4">
+                                <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-b from-white to-white/50 bg-clip-text text-transparent">
+                                    Discover Your Vibe
+                                </h1>
+                                <p className="text-xl text-gray-400 max-w-xl mx-auto leading-relaxed">
+                                    당신에게 딱 맞춘 보안 시뮬레이션을 시작합니다.<br />관심 있는 주제를 선택하여 나만의 프로필을 완성해주세요.
+                                </p>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm text-gray-400">사는 곳 *</label>
-                                <Input
-                                    name="location"
-                                    placeholder="예: 서울, 경기도 수원시"
-                                    value={formData.location}
-                                    onChange={handleInputChange}
-                                    required
-                                />
-                            </div>
-
-                            {/* 선택 항목 */}
-                            <div className="pt-4 border-t border-gray-700">
-                                <p className="text-xs text-gray-500 mb-4">선택 항목 (더 정교한 시뮬레이션을 위해 입력해주세요)</p>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm text-gray-400">SNS/유튜브 첫 화면 요구사항</label>
-                                        <Input
-                                            name="sns_homepage"
-                                            placeholder="예: 게임 영상, 뷰티 컨텐츠, 뉴스"
-                                            value={formData.sns_homepage}
-                                            onChange={handleInputChange}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm text-gray-400">가장 최근 AI 대화 링크</label>
-                                        <Input
-                                            name="recent_ai_link"
-                                            placeholder="예: ChatGPT 대화 공유 링크"
-                                            value={formData.recent_ai_link}
-                                            onChange={handleInputChange}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                        <CardFooter className="justify-end">
                             <Button
                                 onClick={handleNext}
-                                disabled={!isStep1Valid}
-                                className="bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30 disabled:opacity-50"
+                                className="h-16 px-12 text-lg font-bold bg-neon-cyan text-black hover:scale-105 transition-transform"
                             >
-                                다음 <ChevronRight size={16} />
+                                시작하기 <ChevronRight className="ml-2" />
                             </Button>
-                        </CardFooter>
-                    </Card>
-                )}
+                        </motion.div>
+                    )}
 
-                {/* Step 2: 취향 선택 */}
-                {step === 2 && (
-                    <Card className="border-neon-magenta/20 backdrop-blur-sm bg-void/80">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-full bg-neon-magenta/20 text-neon-magenta flex items-center justify-center text-sm">2</span>
-                                관심 분야 선택
-                            </CardTitle>
-                            <p className="text-sm text-gray-400 mt-1">
-                                최소 3개 이상 선택해주세요 ({formData.content_preferences.length}개 선택됨)
-                            </p>
-                        </CardHeader>
-                        <CardContent>
-                            {categoriesLoading ? (
-                                <div className="flex justify-center py-12">
-                                    <Loader2 className="animate-spin text-neon-cyan" size={32} />
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    {categoryGroups?.map((group) => (
-                                        <div key={group.group}>
-                                            <h3 className="text-sm font-medium text-gray-400 mb-3">{group.group}</h3>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                                {group.categories.map((category) => {
-                                                    const isSelected = formData.content_preferences.includes(category.name);
-                                                    return (
-                                                        <button
-                                                            key={category.id}
-                                                            onClick={() => toggleCategory(category.name)}
-                                                            className={`
-                                                                relative p-4 rounded-xl border-2 transition-all duration-200
-                                                                flex flex-col items-center gap-2 text-center
-                                                                ${isSelected
-                                                                    ? 'border-neon-cyan bg-neon-cyan/10 text-white'
-                                                                    : 'border-gray-700 hover:border-gray-600 text-gray-400 hover:text-white'
-                                                                }
-                                                            `}
-                                                        >
-                                                            {isSelected && (
-                                                                <div className="absolute top-2 right-2">
-                                                                    <Check size={16} className="text-neon-cyan" />
-                                                                </div>
-                                                            )}
-                                                            <span className="text-2xl">{category.icon}</span>
-                                                            <span className="text-sm font-medium">{category.name}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                    {/* STEP 1: BASIC INFO */}
+                    {step === 1 && (
+                        <motion.div
+                            key="basic"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                        >
+                            <Card className="bg-void/40 border-white/5 backdrop-blur-xl">
+                                <CardHeader className="text-center">
+                                    <div className="w-12 h-12 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-4">
+                                        <User className="text-gray-400" />
+                                    </div>
+                                    <CardTitle className="text-2xl">기본 정보 설정</CardTitle>
+                                    <p className="text-sm text-gray-500">정교한 시뮬레이션을 위해 아래 정보를 입력해주세요.</p>
+                                </CardHeader>
+                                <CardContent className="grid gap-6 py-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs uppercase tracking-widest text-gray-500 ml-1">나이</label>
+                                            <Input
+                                                type="number"
+                                                placeholder="예: 25"
+                                                value={formData.age}
+                                                onChange={e => setFormData({ ...formData, age: e.target.value })}
+                                                className="bg-white/5 border-white/10"
+                                            />
                                         </div>
-                                    ))}
+                                        <div className="space-y-2">
+                                            <label className="text-xs uppercase tracking-widest text-gray-500 ml-1">직업</label>
+                                            <Input
+                                                placeholder="예: 대학생, 엔지니어"
+                                                value={formData.occupation}
+                                                onChange={e => setFormData({ ...formData, occupation: e.target.value })}
+                                                className="bg-white/5 border-white/10"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs uppercase tracking-widest text-gray-500 ml-1">지역</label>
+                                        <Input
+                                            placeholder="예: 서울 강남구"
+                                            value={formData.location}
+                                            onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                            className="bg-white/5 border-white/10"
+                                        />
+                                    </div>
+                                </CardContent>
+                                <CardFooter className="justify-center">
+                                    <Button
+                                        onClick={handleNext}
+                                        disabled={!isBasicValid}
+                                        className="w-full h-14 bg-white text-black hover:bg-gray-200"
+                                    >
+                                        다음으로 <ChevronRight className="ml-2" />
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        </motion.div>
+                    )}
+
+                    {/* STEPS 2+: CATEGORIES */}
+                    {step >= 2 && step < totalSteps && (
+                        <motion.div
+                            key={`cat-${step}`}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="space-y-12"
+                        >
+                            <div className="text-center space-y-4">
+                                <div className="flex justify-center">
+                                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-neon-cyan border border-white/10">
+                                        <Icon name={V2_SURVEY_DATA[step - 2].icon} size={32} />
+                                    </div>
                                 </div>
-                            )}
-                        </CardContent>
-                        <CardFooter className="justify-between">
+                                <h2 className="text-4xl font-bold">{V2_SURVEY_DATA[step - 2].category}</h2>
+                                <p className="text-gray-400 text-lg">{V2_SURVEY_DATA[step - 2].desc}</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {V2_SURVEY_DATA[step - 2].items.map((item) => {
+                                    const isSelected = formData.content_preferences.includes(item.title);
+                                    return (
+                                        <motion.div
+                                            key={item.title}
+                                            whileHover={{ y: -4 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={() => toggleItem(item.title)}
+                                            className={`
+                                                group relative p-6 rounded-3xl border cursor-pointer transition-all duration-300
+                                                ${isSelected
+                                                    ? 'bg-neon-cyan/10 border-neon-cyan shadow-[0_0_30px_rgba(0,243,255,0.15)]'
+                                                    : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/[0.08]'
+                                                }
+                                            `}
+                                        >
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className={`p-3 rounded-2xl transition-colors ${isSelected ? 'bg-neon-cyan text-black' : 'bg-white/5 text-gray-400 group-hover:bg-white/10'}`}>
+                                                    <Icon name={item.icon} size={24} />
+                                                </div>
+                                                <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'bg-neon-cyan border-neon-cyan text-black' : 'border-white/20'}`}>
+                                                    {isSelected && <Check size={14} strokeWidth={4} />}
+                                                </div>
+                                            </div>
+                                            <h4 className="text-lg font-bold mb-1">{item.title}</h4>
+                                            <p className="text-sm text-gray-500 mb-4 h-10 line-clamp-2">{item.sub}</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {item.tags.map(tag => (
+                                                    <span key={tag} className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-gray-500 border border-white/5">
+                                                        #{tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* FINAL STEP: SUMMARY */}
+                    {step === totalSteps && (
+                        <motion.div
+                            key="summary"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="text-center space-y-8"
+                        >
+                            <div className="w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30">
+                                <Check className="text-green-500" size={40} />
+                            </div>
+                            <div className="space-y-2">
+                                <h2 className="text-3xl font-bold">프로필 완성!</h2>
+                                <p className="text-gray-400">당신만을 위한 위협 인텔리전스 시스템이 준비되었습니다.</p>
+                            </div>
+
+                            <Card className="bg-white/5 border-white/10 text-left">
+                                <CardHeader>
+                                    <CardTitle className="text-sm font-bold tracking-widest text-gray-500 uppercase">선택한 관심 분야 ({formData.content_preferences.length})</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex flex-wrap gap-2">
+                                        {formData.content_preferences.map(title => (
+                                            <span key={title} className="px-3 py-1.5 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 text-xs font-medium text-neon-cyan">
+                                                {title}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
                             <Button
-                                onClick={handleBack}
-                                variant="ghost"
-                                className="text-gray-400 hover:text-white"
+                                onClick={() => submitMutation.mutate()}
+                                disabled={submitMutation.isPending}
+                                className="w-full h-16 text-lg font-bold bg-gradient-to-r from-neon-cyan to-blue-500 text-black hover:opacity-90"
                             >
-                                <ChevronLeft size={16} /> 이전
+                                {submitMutation.isPending ? <Loader2 className="animate-spin" /> : "대시보드로 입장하기"}
                             </Button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+
+            {/* Bottom Nav */}
+            {step > 0 && step < totalSteps && (
+                <div className="fixed bottom-0 left-0 w-full p-8 z-50 bg-void/90 backdrop-blur-xl border-t border-white/5">
+                    <div className="max-w-4xl mx-auto flex justify-between gap-4">
+                        <Button
+                            variant="ghost"
+                            onClick={handleBack}
+                            disabled={step === 1}
+                            className="h-14 px-8 text-gray-400 hover:text-white"
+                        >
+                            <ChevronLeft className="mr-2" /> 이전
+                        </Button>
+                        <div className="flex gap-3">
+                            {step >= 2 && (
+                                <Button
+                                    variant="ghost"
+                                    onClick={handleNext}
+                                    className="h-14 px-8 text-gray-500 hover:text-white"
+                                >
+                                    건너뛰기
+                                </Button>
+                            )}
                             <Button
                                 onClick={handleNext}
-                                disabled={!isStep2Valid || submitMutation.isPending}
-                                className="bg-gradient-to-r from-neon-cyan to-neon-magenta text-black font-semibold hover:opacity-90 disabled:opacity-50"
+                                className="h-14 px-12 font-bold bg-white text-black hover:bg-gray-200"
                             >
-                                {submitMutation.isPending ? (
-                                    <Loader2 className="animate-spin" size={16} />
-                                ) : (
-                                    <>완료 <Check size={16} /></>
-                                )}
+                                {step === totalSteps - 1 ? "최종 완료" : "다음 단계"} <ChevronRight className="ml-2" />
                             </Button>
-                        </CardFooter>
-                    </Card>
-                )}
-            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
