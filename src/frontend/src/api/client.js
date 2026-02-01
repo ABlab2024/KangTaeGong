@@ -1,32 +1,15 @@
-import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
 
-const client = axios.create({
-    baseURL: '/api/v1', // Proxy handles redirection to backend
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Request Interceptor: Add Token
-client.interceptors.request.use((config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Supabase URL or Anon Key is missing. Check your .env file.');
+}
 
-// Response Interceptor: Handle Errors
-client.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            // Token expired or invalid
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
-        }
-        return Promise.reject(error);
-    }
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export default client;
+// axios 기반 client는 서버리스 전환을 위해 제거하거나 
+// supabase로의 브릿지 역할을 하도록 남겨둘 수 있지만, 
+// 직접 supabase를 사용하는 방식이 더 효율적입니다.
+export default supabase;
