@@ -76,6 +76,18 @@ create policy "모든 유저가 카테고리 조회 가능" on public.content_ca
 
 create policy "모든 유저가 위협 사례 조회 가능" on public.threat_cases
   for select using (true);
+
+-- 5. 초기 카테고리 데이터 삽입 (예시)
+insert into public.content_categories (name, icon, category_group, display_order) values
+  ('가상화폐', '💰', '금융/경제', 1),
+  ('주식/투자', '📈', '금융/경제', 2),
+  ('은행/대출', '🏦', '금융/경제', 3),
+  ('쇼핑/결제', '🛍️', '생활/서비스', 4),
+  ('택배/배송', '📦', '생활/서비스', 5),
+  ('공공기관', '⚖️', '생활/서비스', 6),
+  ('게임/엔터', '🎮', '문화/취미', 7),
+  ('SNS/메신저', '💬', 'IT/기술', 8),
+  ('보안/백신', '🛡️', 'IT/기술', 9);
 ```
 
 ---

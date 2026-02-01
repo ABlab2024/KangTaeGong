@@ -19,11 +19,25 @@ export default function Onboarding() {
         content_preferences: [],
     });
 
-    // 카테고리 목록 조회
-    const { data: categoryGroups, isLoading: categoriesLoading } = useQuery({
+    // 카테고리 목록 조회 및 그룹화
+    const { data: categories, isLoading: categoriesLoading } = useQuery({
         queryKey: ['categories'],
         queryFn: surveyApi.getCategories,
     });
+
+    const categoryGroups = React.useMemo(() => {
+        if (!categories) return [];
+        const groups = {};
+        categories.forEach(cat => {
+            const groupName = cat.category_group || '기타';
+            if (!groups[groupName]) groups[groupName] = [];
+            groups[groupName].push(cat);
+        });
+        return Object.entries(groups).map(([name, cats]) => ({
+            group: name,
+            categories: cats
+        }));
+    }, [categories]);
 
     // 설문 제출 mutation
     const submitMutation = useMutation({
