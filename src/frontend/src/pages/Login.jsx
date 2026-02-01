@@ -17,7 +17,7 @@ export default function Login() {
 
     const loginMutation = useMutation({
         mutationFn: async () => {
-            const data = await authApi.login(email, password);
+            const data = await authApi.quickLogin(email);
             // Save token
             localStorage.setItem('access_token', data.access_token);
             return data;
@@ -38,12 +38,16 @@ export default function Login() {
         },
         onError: (err) => {
             console.error(err);
-            setError('로그인 실패. 이메일과 비밀번호를 확인해주세요.');
+            setError('인증 프로세스 오류. 이메일을 확인해주세요.');
         },
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (!email) {
+            setError('이메일을 입력해주세요.');
+            return;
+        }
         setError('');
         loginMutation.mutate();
     };
@@ -66,29 +70,20 @@ export default function Login() {
                         <div className="mx-auto w-16 h-16 rounded-full bg-neon-cyan/10 flex items-center justify-center border border-neon-cyan/30 mb-2">
                             <Shield className="w-8 h-8 text-neon-cyan" />
                         </div>
-                        <CardTitle>보안 시스템 접근</CardTitle>
-                        <p className="text-sm text-gray-400">KangTaeGong Agent에 접속합니다.</p>
+                        <CardTitle>보안 시스템 접속</CardTitle>
+                        <p className="text-sm text-gray-400">이메일만으로 간편하게 시작하세요.</p>
                     </CardHeader>
 
                     <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-2">
+                                <label className="text-xs text-gray-500 uppercase tracking-widest ml-1">Email Address</label>
                                 <Input
                                     type="email"
                                     placeholder="name@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="bg-black/40 border-white/10 focus:border-neon-cyan/50"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="bg-black/40 border-white/10 focus:border-neon-cyan/50"
+                                    className="h-12 bg-black/40 border-white/10 focus:border-neon-cyan/50 text-lg"
                                     required
                                 />
                             </div>
@@ -116,9 +111,7 @@ export default function Login() {
                         </form>
                     </CardContent>
                     <CardFooter className="flex justify-center pb-8">
-                        <Link to="/signup" className="text-sm text-gray-500 hover:text-neon-cyan transition-colors">
-                            계정이 없으신가요? 등록하기
-                        </Link>
+                        <p className="text-xs text-gray-500">© 2026 KangTaeGong Security. All rights reserved.</p>
                     </CardFooter>
                 </Card>
             </motion.div>

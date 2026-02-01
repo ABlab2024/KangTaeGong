@@ -43,18 +43,34 @@ async def process_feeds(client: Client):
     articles = fetch_security_news(feeds)
     print(f"Fetched {len(articles)} articles.")
     
+    # LIMIT: Only process top 3 articles for testing
+    limit = 3
+    processed_count = 0
+    
     for article in articles:
-        # TODO: Check if article.source_url already exists to avoid duplicates
-        # For simple MVP, we rely on duplicate checks or just proceed.
-        # Ideally: response = client.table("threat_cases").select("id").eq("source_url", article["source_url"]).execute()
+        if processed_count >= limit:
+            print(f"Reached limit of {limit} articles. Stopping.")
+            break
+
+        # Check if article already exists
+        existing = client.table("threat_cases").select("id").eq("source_url", article["source_url"]).execute()
+        if existing.data:
+            print(f"Skipping (Already exists): {article['title']}")
+            continue
         
         print(f"Analyzing: {article['title']}...")
         
         # 2. AI Analysis (with rate limiting)
         analysis = analyze_threat(article["raw_text"])
-        time.sleep(15)  # Rate limiting: 8 seconds between API calls
         
-        if not analysis.get("is_threat", True): # Default to True if key missing, but here logical default is False if returned explicitly
+        # Report usage
+        usage = analysis.pop("_usage", {})
+        if usage:
+            print(f"   [API Usage] {usage['total_tokens']} tokens (Prompt: {usage['prompt_tokens']}, Completion: {usage['completion_tokens']})")
+
+        time.sleep(15)  # Rate limiting
+        
+        if not analysis.get("is_threat", True):
              print(f"Skipping (Not a threat): {article['title']}")
              continue
              
@@ -76,10 +92,9 @@ async def process_feeds(client: Client):
                 "collected_at": datetime.now(UTC).isoformat()
             }
             
-            # Using upsert based on source_url if we had a unique constraint, but we don't on schema v1.
-            # We'll just insert.
             client.table("threat_cases").insert(data).execute()
             print(f"Saved Threat: {article['title']}")
+            processed_count += 1
             
         except Exception as e:
             print(f"DB Insert Error: {e}")

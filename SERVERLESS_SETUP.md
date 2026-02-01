@@ -39,12 +39,16 @@ create table public.content_categories (
   display_order integer default 0
 );
 
--- 3. 위협 사례(피싱 사례) 테이블
+-- 3. 위협 사례(피싱 사례) 테이블 (+ 벡터 저장용)
+-- 먼저 벡터 확장 기능을 활성화해야 합니다.
+create extension if not exists vector;
+
 create table public.threat_cases (
   id uuid primary key default gen_random_uuid(),
-  source_url text,
+  source_url text unique, -- 중복 방지를 위한 unique 설정
   raw_text text,
   analysis_json jsonb,
+  embedding vector(1536), -- OpenAI text-embedding-3-small 기준 (1536차원)
   collected_at timestamp with time zone default now()
 );
 

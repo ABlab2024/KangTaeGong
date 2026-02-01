@@ -2,6 +2,21 @@ import supabase from './client';
 
 export const authApi = {
     /**
+     * 간편 로그인 (이메일만 입력)
+     */
+    quickLogin: async (email) => {
+        const defaultPassword = 'kangtaegong123!';
+        try {
+            // 1. 먼저 로그인을 시도
+            return await authApi.login(email, defaultPassword);
+        } catch (err) {
+            // 2. 로그인 실패 시 회원가입 후 로그인
+            await authApi.register(email, defaultPassword, email.split('@')[0]);
+            return await authApi.login(email, defaultPassword);
+        }
+    },
+
+    /**
      * 로그인
      */
     login: async (email, password) => {

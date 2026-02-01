@@ -89,6 +89,13 @@ def _analyze_with_gemini(text: str) -> Dict[str, Any]:
     )
     jsn_resp = repair_json(response.text)
     result = json.loads(jsn_resp)
+    
+    # Add usage info
+    result["_usage"] = {
+        "prompt_tokens": response.usage_metadata.prompt_token_count,
+        "completion_tokens": response.usage_metadata.candidates_token_count,
+        "total_tokens": response.usage_metadata.total_token_count
+    }
     return result
 
 
@@ -105,6 +112,13 @@ def _analyze_with_openai(text: str) -> Dict[str, Any]:
     )
     jsn_resp = repair_json(response.choices[0].message.content)
     result = json.loads(jsn_resp)
+
+    # Add usage info
+    result["_usage"] = {
+        "prompt_tokens": response.usage.prompt_tokens,
+        "completion_tokens": response.usage.completion_tokens,
+        "total_tokens": response.usage.total_tokens
+    }
     return result
 
 
