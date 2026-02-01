@@ -3,3 +3,5 @@ beautifulsoup4
 openai
 python-dotenv
 supabase
+json-repair
+google-genai

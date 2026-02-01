@@ -97,20 +97,34 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ---
 
-## 4. AI 분석 기능 (OpenAI/Gemini 키 설정)
+## 4. AI 분석 기능 (LLM 모델 설정)
 
-피싱 위협 분석이나 자동 답변 생성 등 AI 기능이 필요한 경우, 다음 경로에 API 키를 등록해야 합니다.
+현재 시스템은 최신 **`gpt-4.1-mini`** 모델을 기본으로 사용하도록 설정되어 있습니다.
 
-### [방법 A] 프론트엔드 직접 연동 (간단한 테스트)
-*   `.env` 파일에 `VITE_OPENAI_API_KEY`를 추가합니다.
-*   **주의**: 이 방식은 브라우저에서 키가 노출될 위험이 있으므로 데모용으로만 권장됩니다.
-
-### [방법 B] Netlify Functions 활용 (보안 권장)
-*   백엔드 서버 없이 보안이 필요한 작업을 할 때 유용합니다.
-*   Netlify **Site configuration > Environment variables**에 `OPENAI_API_KEY`를 등록하세요.
+### [모델 확인 및 변경]
+*   **파일 위치**: `src/collector/ai_analyzer.py`
+*   **설정**: `OPENAI_MODEL = "gpt-4.1-mini"`
+*   이 모델은 높은 가성비와 속도를 제공하며, 피싱 위협 판별에 특화되어 있습니다.
 
 ---
 
-## 5. Troubleshooting (문제 해결)
+## 5. 수집기 자동화 (GitHub Actions)
+
+매일/매시간 뉴스를 자동으로 수집하여 DB에 쌓기 위해 GitHub Actions를 사용합니다.
+
+### [GitHub Secrets 등록]
+GitHub 저장소의 **Settings > Secrets and variables > Actions** 메뉴에서 다음 값들을 등록해 주세요:
+1.  `SUPABASE_URL`: Supabase 프로젝트 URL
+2.  `SUPABASE_KEY`: Supabase **service_role** 키 (데이터 수집기는 쓰기 권한이 필요하므로 `anon`이 아닌 `service_role` 키를 권장합니다)
+3.  `OPENAI_API_KEY`: GPT 사용을 위한 API 키
+
+### [동작 확인]
+*   GitHub의 **Actions** 탭으로 이동하여 `Security Threat Collector` 워크플로우를 선택합니다.
+*   **Run workflow** 버튼을 눌러 즉시 수집이 시작되는지 확인합니다.
+*   정상 작동하면 이후부터는 설정된 스케줄(기본 1시간 단위)에 따라 자동으로 작동합니다.
+
+---
+
+## 6. Troubleshooting (문제 해결)
 - **로그인 시 404 에러**: Netlify에 `_redirects` 파일이 정상적으로 배포되었는지 확인하세요.
 - **데이터가 안 보임**: Supabase SQL Editor에서 위 쿼리를 실행했는지, RLS 정책이 적용되었는지 확인하세요.

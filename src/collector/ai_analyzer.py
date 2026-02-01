@@ -21,7 +21,7 @@ if LLM_PROVIDER == "gemini":
 if LLM_PROVIDER == "openai":
     from openai import OpenAI
     openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    OPENAI_MODEL = "gpt-4o-mini"
+    OPENAI_MODEL = "gpt-4.1-mini"
 
 SYSTEM_PROMPT = """<role>
 당신은 고도로 숙련된 사이버 보안 분석가(Cyber Security Analyst)이자 위협 인텔리전스 전문가입니다. 비정형 보안 뉴스 및 보고서에서 핵심 위협 데이터를 식별하고 이를 기계 학습 및 DB 저장에 적합한 구조화된 데이터로 변환하는 데 특화되어 있습니다.
