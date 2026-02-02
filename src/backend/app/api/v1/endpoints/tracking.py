@@ -92,7 +92,7 @@ async def track_form_submission(
     
     if sim_result:
         sim_result.info_submitted = True
-        sim_result.submitted_fields = json.dumps(list(submitted_data.keys()), ensure_ascii=False)
+        sim_result.submitted_fields = list(submitted_data.keys())
         sim_result.is_defended = False
         await db.commit()
     

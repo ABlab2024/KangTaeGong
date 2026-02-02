@@ -192,9 +192,10 @@ export default function Admin() {
             alert('모든 필드를 입력해주세요.');
             return;
         }
-        // Send local time directly without UTC conversion
-        // Format: YYYY-MM-DDTHH:MM:SS (no timezone suffix = treated as local time by backend)
-        const scheduledDateTime = `${scheduleDate}T${scheduleTime}:00`;
+        // Create Date object from local date and time inputs
+        const localDate = new Date(`${scheduleDate}T${scheduleTime}:00`);
+        // Convert to UTC ISO string to ensure consistent server-side processing
+        const scheduledDateTime = localDate.toISOString();
         createScheduleMutation.mutate({
             userIds: selectedUserIds,
             scenarioId: selectedScenarioId,
@@ -236,7 +237,8 @@ export default function Admin() {
     const handleSaveSchedule = () => {
         if (!selectedTraining) return;
 
-        const scheduledDateTime = `${editScheduleForm.date}T${editScheduleForm.time}:00`;
+        const localDate = new Date(`${editScheduleForm.date}T${editScheduleForm.time}:00`);
+        const scheduledDateTime = localDate.toISOString();
 
         // Update all schedules in this training group
         const updatePromises = selectedTraining.items

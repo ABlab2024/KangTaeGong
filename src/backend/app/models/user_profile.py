@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Integer, Boolean, DateTime, Column, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base
 
@@ -8,15 +9,15 @@ from app.db.base_class import Base
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     age = Column(Integer, nullable=True)
     occupation = Column(String(100), nullable=True)
     location = Column(String(100), nullable=True)
     sns_homepage = Column(String(500), nullable=True)
     recent_ai_link = Column(String(500), nullable=True)
-    content_preferences = Column(Text, default="[]")  # JSON string for SQLite
-    augmented_preferences = Column(Text, default="[]")  # LLM augmented preferences
+    content_preferences = Column(JSONB, default=list)
+    augmented_preferences = Column(JSONB, default=list)
     vulnerability_analysis = Column(Text, nullable=True)  # LLM profiling result
     vulnerability_summary = Column(Text, nullable=True)  # Short summary for dashboard
     onboarding_completed = Column(Boolean, default=False)
@@ -31,7 +32,7 @@ class UserProfile(Base):
 class ContentCategory(Base):
     __tablename__ = "content_categories"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), unique=True, nullable=False)
     icon = Column(String(50), nullable=True)
     category_group = Column(String(50), nullable=True)

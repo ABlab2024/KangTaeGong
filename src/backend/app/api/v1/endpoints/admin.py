@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 from datetime import datetime, timedelta
 import json
 import random
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -30,7 +31,7 @@ class AdminLoginRequest(BaseModel):
 
 
 class UserSummary(BaseModel):
-    id: str
+    id: UUID
     email: str
     age_group: Optional[str] = None
     gender: Optional[str] = None
@@ -40,7 +41,7 @@ class UserSummary(BaseModel):
 
 
 class TrainingScheduleInfo(BaseModel):
-    id: str
+    id: UUID
     user_email: str
     scheduled_date: datetime
     scenario_name: Optional[str] = None
@@ -49,7 +50,7 @@ class TrainingScheduleInfo(BaseModel):
 
 
 class ScenarioPreview(BaseModel):
-    id: str
+    id: UUID
     name: str
     subject: Optional[str] = None
     body_preview: Optional[str] = None
@@ -90,7 +91,7 @@ class ScenarioUpdateRequest(BaseModel):
 
 class ScenarioDetailResponse(BaseModel):
     """시나리오 상세 응답"""
-    id: str
+    id: UUID
     name: str
     description: Optional[str] = None
     scenario_type: Optional[str] = None
@@ -152,8 +153,8 @@ def personalize_email_body(
         
         # 선호도 정보
         try:
-            prefs = json.loads(profile.content_preferences) if profile.content_preferences else []
-            aug_prefs = json.loads(profile.augmented_preferences) if profile.augmented_preferences else []
+            prefs = profile.content_preferences if profile.content_preferences else []
+            aug_prefs = profile.augmented_preferences if profile.augmented_preferences else []
             all_prefs = prefs + aug_prefs
             prefs_text = ", ".join(all_prefs[:3]) if all_prefs else ""
             body = body.replace("{preferences}", prefs_text)

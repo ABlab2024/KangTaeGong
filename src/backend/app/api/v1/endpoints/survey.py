@@ -1,6 +1,7 @@
 from typing import Any, List, Optional
 from collections import defaultdict
 import json
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -17,7 +18,7 @@ router = APIRouter()
 
 # Pydantic schemas
 class ContentCategorySchema(BaseModel):
-    id: str
+    id: UUID
     name: str
     icon: Optional[str] = None
     category_group: Optional[str] = None
@@ -54,8 +55,8 @@ class AugmentResponse(BaseModel):
 
 
 class UserProfileResponse(BaseModel):
-    id: str
-    user_id: str
+    id: UUID
+    user_id: UUID
     age: Optional[int] = None
     occupation: Optional[str] = None
     location: Optional[str] = None
@@ -119,7 +120,7 @@ async def submit_survey(
     )
     existing_profile = result.scalar_one_or_none()
 
-    preferences_json = json.dumps(survey_data.content_preferences, ensure_ascii=False)
+    preferences_list = survey_data.content_preferences
 
     if existing_profile:
         # Update existing profile
@@ -128,7 +129,7 @@ async def submit_survey(
         existing_profile.location = survey_data.location
         existing_profile.sns_homepage = survey_data.sns_homepage
         existing_profile.recent_ai_link = survey_data.recent_ai_link
-        existing_profile.content_preferences = preferences_json
+        existing_profile.content_preferences = preferences_list
         existing_profile.onboarding_completed = True
 
         await db.commit()
@@ -143,8 +144,8 @@ async def submit_survey(
             location=survey_data.location,
             sns_homepage=survey_data.sns_homepage,
             recent_ai_link=survey_data.recent_ai_link,
-            content_preferences=preferences_json,
-            augmented_preferences="[]",
+            content_preferences=preferences_list,
+            augmented_preferences=[],
             onboarding_completed=True,
         )
 
@@ -160,8 +161,8 @@ async def submit_survey(
         age=profile.age,
         occupation=profile.occupation,
         location=profile.location,
-        content_preferences=json.loads(profile.content_preferences or "[]"),
-        augmented_preferences=json.loads(profile.augmented_preferences or "[]"),
+        content_preferences=profile.content_preferences or [],
+        augmented_preferences=profile.augmented_preferences or [],
         vulnerability_analysis=profile.vulnerability_analysis,
         onboarding_completed=profile.onboarding_completed,
         augmentation_count=profile.augmentation_count
@@ -201,9 +202,9 @@ async def augment_preferences(
     
     # Update profile with augmented preferences
     if profile:
-        current_augmented = json.loads(profile.augmented_preferences or "[]")
+        current_augmented = profile.augmented_preferences if profile.augmented_preferences else []
         current_augmented.extend(new_prefs)
-        profile.augmented_preferences = json.dumps(current_augmented, ensure_ascii=False)
+        profile.augmented_preferences = current_augmented
         profile.augmentation_count = request.iteration + 1
         await db.commit()
     
@@ -236,8 +237,8 @@ async def get_vulnerability_analysis(
             detail="Profile not found. Please complete onboarding first."
         )
     
-    user_prefs = json.loads(profile.content_preferences or "[]")
-    augmented_prefs = json.loads(profile.augmented_preferences or "[]")
+    user_prefs = profile.content_preferences or []
+    augmented_prefs = profile.augmented_preferences or []
     
     # If analysis doesn't exist or refresh is requested, generate it
     if not profile.vulnerability_analysis or refresh:
@@ -297,8 +298,8 @@ async def get_onboarding_status(
             age=profile.age,
             occupation=profile.occupation,
             location=profile.location,
-            content_preferences=json.loads(profile.content_preferences or "[]"),
-            augmented_preferences=json.loads(profile.augmented_preferences or "[]"),
+            content_preferences=profile.content_preferences or [],
+            augmented_preferences=profile.augmented_preferences or [],
             vulnerability_analysis=profile.vulnerability_analysis,
             onboarding_completed=profile.onboarding_completed,
             augmentation_count=profile.augmentation_count
@@ -329,8 +330,8 @@ async def get_user_profile(
         age=profile.age,
         occupation=profile.occupation,
         location=profile.location,
-        content_preferences=json.loads(profile.content_preferences or "[]"),
-        augmented_preferences=json.loads(profile.augmented_preferences or "[]"),
+        content_preferences=profile.content_preferences or [],
+        augmented_preferences=profile.augmented_preferences or [],
         vulnerability_analysis=profile.vulnerability_analysis,
         onboarding_completed=profile.onboarding_completed,
         augmentation_count=profile.augmentation_count

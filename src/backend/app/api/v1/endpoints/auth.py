@@ -41,7 +41,7 @@ async def login_with_email(
             age_group=age_group,
             gender=gender,
             hashed_password=None,  # No password for email-only login
-            preferences="[]",
+            preferences=[],
             security_score=0
         )
         db.add(user)
@@ -148,7 +148,7 @@ async def create_user(
     user = User(
         email=user_in.email,
         hashed_password=security.get_password_hash(user_in.password) if user_in.password else None,
-        preferences=json.dumps(user_in.preferences) if user_in.preferences else "[]",
+        preferences=user_in.preferences if user_in.preferences else [],
         security_score=0
     )
     db.add(user)

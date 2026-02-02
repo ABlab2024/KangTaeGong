@@ -4,8 +4,6 @@ APScheduler를 사용하여 주기적으로 훈련 스케쥴을 처리합니다.
 """
 import logging
 from datetime import datetime
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
@@ -15,9 +13,6 @@ from app.models.user_profile import UserProfile
 from app.services.email_service import email_service
 
 logger = logging.getLogger(__name__)
-
-# 글로벌 스케쥴러 인스턴스
-scheduler = AsyncIOScheduler()
 
 
 def personalize_email_body(
@@ -59,8 +54,8 @@ def personalize_email_body(
 
 async def process_pending_schedules():
     """대기 중인 훈련 스케쥴을 처리합니다."""
-    now = datetime.now()
-    logger.info(f"🕐 스케쥴 처리 시작 - 현재 시간: {now.isoformat()}")
+    now = datetime.utcnow()
+    logger.info(f"🕐 스케쥴 처리 시작 - 현재 시간(UTC): {now.isoformat()}")
     
     async with AsyncSessionLocal() as db:
         try:
@@ -160,24 +155,13 @@ async def process_pending_schedules():
             logger.error(f"❌ 스케쥴 처리 중 오류 발생: {e}")
 
 
-def start_scheduler():
-    """스케쥴러를 시작합니다."""
-    # 1분마다 스케쥴 처리 작업 실행
-    scheduler.add_job(
-        process_pending_schedules,
-        trigger=IntervalTrigger(minutes=1),
-        id="process_training_schedules",
-        name="훈련 스케쥴 처리",
-        replace_existing=True
-    )
-    scheduler.start()
-    print("🚀 백그라운드 스케쥴러 시작됨 (1분 간격으로 스케쥴 처리)")
-    logger.info("🚀 백그라운드 스케쥴러 시작됨 (1분 간격으로 스케쥴 처리)")
 
+# APScheduler 제거됨 - GitHub Actions로 대체
+
+def start_scheduler():
+    """Deprecated: GitHub Actions로 대체됨"""
+    print("⚠️ start_scheduler is deprecated. Use GitHub Actions cron instead.")
 
 def stop_scheduler():
-    """스케쥴러를 중지합니다."""
-    if scheduler.running:
-        scheduler.shutdown(wait=False)
-        print("🛑 백그라운드 스케쥴러 중지됨")
-        logger.info("🛑 백그라운드 스케쥴러 중지됨")
+    """Deprecated: GitHub Actions로 대체됨"""
+    pass

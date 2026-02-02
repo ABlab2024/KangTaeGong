@@ -54,6 +54,8 @@ class EmailService:
         dummy_page_url: Optional[str] = None
     ) -> bool:
         """피싱 시뮬레이션 이메일을 발송합니다."""
+        simulation_id = str(simulation_id)
+
         if not self.username or not self.password:
             print("❌ SMTP credentials not configured")
             return False
