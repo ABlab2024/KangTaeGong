@@ -92,7 +92,7 @@ vercel --prod
 
 | 변수명 | 값 | 환경 |
 |--------|-----|------|
-| `VITE_API_URL` | `https://your-backend.onrender.com/api/v1` | Production, Preview |
+| `VITE_API_URL` | `https://kangtaegong.onrender.com/api/v1` | Production, Preview |
 
 > ⚠️ **중요**: Backend URL이 정확한지 확인하세요. `/api/v1`까지 포함해야 합니다.
 
