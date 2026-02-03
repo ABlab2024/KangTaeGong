@@ -1,19 +1,17 @@
 [build]
   base = "/"
-  # 이제 Python 의존성 설치 안 함 -> JS 의존성만 설치
-  command = "cd src/frontend && npm install && npm run build"
+  # 
+  # 루트에서 Functions 패키지도 설치해야 합니다.
+  command = "npm install && cd src/frontend && npm install && npm run build"
   publish = "src/frontend/dist"
 
 [functions]
   directory = "netlify/functions"
-  # node_modules 포함 ( @supabase/supabase-js 등)
   node_bundler = "esbuild"
-  # Python 파일 포함 필요 없음
 
 [[redirects]]
-  # API 요청 -> JS Function으로
   from = "/api/v1/*"
-  to = "/.netlify/functions/api" # api.js 가 실행됨
+  to = "/.netlify/functions/api"
   status = 200
   force = true 
 
