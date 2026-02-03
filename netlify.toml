@@ -1,12 +1,16 @@
 [build]
-  command = "pip install -r src/backend/requirements.txt"
-  publish = "."
+  # Netlify가 빌드를 실행할 기본 디렉토리 (프론트엔드 소스 위치)
+  base = "src/frontend"
+  
+  # 빌드 명령어
+  command = "npm run build"
+  
+  # 빌드 결과물이 위치하는 디렉토리 (base 기준 상대 경로)
+  publish = "dist"
 
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
+# SPA(Single Page Application) 라우팅 지원을 위한 리다이렉트 설정
+# 모든 요청을 index.html로 보내서 React Router가 처리하게 함
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/*"
+  to = "/index.html"
   status = 200
