@@ -1,97 +1,62 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// 1. Supabase 클라이언트 초기화
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase = null;
-if (supabaseUrl && supabaseKey) {
-    try {
-        supabase = createClient(supabaseUrl, supabaseKey);
-    } catch (e) {
-        console.error("Supabase Init Error:", e);
-    }
-}
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 exports.handler = async function (event, context) {
-    // CORS 처리
     const headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
     };
 
-    if (event.httpMethod === 'OPTIONS') {
-        return { statusCode: 200, headers, body: '' };
-    }
+    if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
 
-    // 경로 파싱
-    let path = event.path;
-    let cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '').split('?')[0];
-
-    // Method 대소문자 보정
+    const path = event.path;
+    const cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '').split('?')[0];
     const method = (event.httpMethod || '').toUpperCase();
 
-    // 라우팅 로직
-
-    // 1. 로그인 (POST /login/email)
+    // 1. 로그인 (POST/GET 모두 허용하여 리다이렉트 이슈 방지)
     if (cleanPath === '/login/email' || path.endsWith('/login/email')) {
-        // [예외 처리] 브라우제/Netlify 이슈로 GET으로 리다이렉트 된 경우, 
-        // 혹시라도 쿼리파라미터에 email이 있으면 로그인을 시도해본다 (UX 개선)
-        if (method === 'GET' && event.queryStringParameters && event.queryStringParameters.email) {
-            return handleLoginEmail(event, headers);
-        }
-
-        if (method !== 'POST') {
-            return {
-                statusCode: 405,
-                headers,
-                body: JSON.stringify({
-                    error: "Method Not Allowed (Login)",
-                    received_method: method,
-                    path: cleanPath,
-                    hint: "Please allow some time for the frontend CDN to update, or try Ctrl+Shift+R."
-                })
-            };
-        }
         return handleLoginEmail(event, headers);
     }
 
-    // 2. 카테고리 (GET /survey/categories)
+    // 2. 카테고리
     if (cleanPath === '/survey/categories' || path.endsWith('/survey/categories')) {
         return handleSurveyCategories(event, headers);
     }
 
-    // 3. 내 정보 조회 (GET /users/me)
+    // 3. 내 정보
     if (cleanPath === '/users/me' || path.endsWith('/users/me')) {
         return handleGetMe(event, headers);
     }
 
-    // 4. 설문 제출 (POST /survey) - 디버깅용 모의 구현
+    // 4. 설문 제출 (Mock)
     if (cleanPath === '/survey' || path.endsWith('/survey')) {
-        if (method !== 'POST') return { statusCode: 405, headers, body: 'Use POST' };
-        return { statusCode: 200, headers, body: JSON.stringify({ status: "Success", message: "Survey saved (Mock)" }) };
+        return { statusCode: 200, headers, body: JSON.stringify({ status: "Success" }) };
     }
 
     return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({
-            error: "Not Found",
-            clean_path: cleanPath,
-            raw_path: path,
-            method: method
-        })
+        body: JSON.stringify({ error: "Not Found", path: cleanPath, method })
     };
 };
 
-// ------------------------------------------------------------------
-// 핸들러 함수들
-// ------------------------------------------------------------------
-
 async function handleLoginEmail(event, headers) {
+    if (!supabase) return { statusCode: 500, headers, body: 'Supabase not initialized' };
+
     let body = {};
-    try { body = JSON.parse(event.body || '{}'); } catch (e) { }
+    if (event.body) {
+        try {
+            // Netlify는 때때로 body를 base64로 인코딩함
+            const data = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body;
+            body = JSON.parse(data);
+        } catch (e) {
+            console.error("JSON Parse Error:", e);
+        }
+    }
 
     const queryParams = event.queryStringParameters || {};
     const email = body.email || queryParams.email;
@@ -99,16 +64,25 @@ async function handleLoginEmail(event, headers) {
     const gender = body.gender || queryParams.gender;
 
     if (!email) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: "Email required" }) };
+        return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+                error: "Email required",
+                debug_info: {
+                    method: event.httpMethod,
+                    has_body: !!event.body,
+                    query: queryParams
+                }
+            })
+        };
     }
 
-    // SignIn
     let { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: "kangtaegong_mvp_password"
     });
 
-    // SignUp
     if (error) {
         const signUpRes = await supabase.auth.signUp({
             email,
@@ -116,11 +90,7 @@ async function handleLoginEmail(event, headers) {
             options: { data: { age_group, gender } }
         });
         if (signUpRes.error) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: `Signup failed: ${signUpRes.error.message}` })
-            };
+            return { statusCode: 400, headers, body: JSON.stringify({ error: signUpRes.error.message }) };
         }
         data = signUpRes.data;
     }
@@ -136,9 +106,6 @@ async function handleLoginEmail(event, headers) {
     };
 }
 
-// ... handleSurveyCategories, handleGetMe 는 기존과 동일하므로 생략 (문자열 아끼기)
-// 아래 코드는 위에서 export한 핸들러에서 호출되므로, 함수 정의만 확실하면 됨.
-
 async function handleSurveyCategories(event, headers) {
     const categories = [
         { id: "finance", name_ko: "금융/자산", name_en: "finance" },
@@ -148,31 +115,16 @@ async function handleSurveyCategories(event, headers) {
         { id: "loan", name_ko: "대출/투자", name_en: "loan" },
         { id: "tech", name_ko: "계정/보안", name_en: "tech" }
     ];
-
-    return {
-        statusCode: 200,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(categories)
-    };
+    return { statusCode: 200, headers, body: JSON.stringify(categories) };
 }
 
 async function handleGetMe(event, headers) {
     const authHeader = event.headers.authorization || event.headers.Authorization;
-
-    if (!authHeader) {
-        return { statusCode: 401, headers, body: JSON.stringify({ error: "Missing Token" }) };
-    }
+    if (!authHeader) return { statusCode: 401, headers, body: 'No token' };
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return { statusCode: 401, headers, body: 'Invalid token' };
 
-    if (error || !user) {
-        return { statusCode: 401, headers, body: JSON.stringify({ error: "Invalid Token" }) };
-    }
-
-    return {
-        statusCode: 200,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
-    };
+    return { statusCode: 200, headers, body: JSON.stringify(user) };
 }
