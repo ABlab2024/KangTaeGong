@@ -29,11 +29,24 @@ exports.handler = async function (event, context) {
     let path = event.path;
     let cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '').split('?')[0];
 
+    // Method 대소문자 보정
+    const method = (event.httpMethod || '').toUpperCase();
+
     // 라우팅 로직
 
     // 1. 로그인 (POST /login/email)
     if (cleanPath === '/login/email' || path.endsWith('/login/email')) {
-        if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: 'Methods Not Allowed' };
+        if (method !== 'POST') {
+            return {
+                statusCode: 405,
+                headers,
+                body: JSON.stringify({
+                    error: "Method Not Allowed (Login)",
+                    received_method: method,
+                    path: cleanPath
+                })
+            };
+        }
         return handleLoginEmail(event, headers);
     }
 
@@ -42,24 +55,41 @@ exports.handler = async function (event, context) {
         return handleSurveyCategories(event, headers);
     }
 
-    // 3. 내 정보 조회 (GET /users/me) - *새로 추가한 부분*
+    // 3. 내 정보 조회 (GET /users/me)
     if (cleanPath === '/users/me' || path.endsWith('/users/me')) {
-        if (event.httpMethod !== 'GET') return { statusCode: 405, headers, body: 'Use GET' };
+        if (method !== 'GET') {
+            return {
+                statusCode: 405,
+                headers,
+                body: JSON.stringify({
+                    error: "Method Not Allowed (Users Me)",
+                    received_method: method
+                })
+            };
+        }
         return handleGetMe(event, headers);
+    }
+
+    // 디버그용: POST /survey -> 일단 성공 처리 (임시)
+    if (cleanPath === '/survey' || path.endsWith('/survey')) {
+        return { statusCode: 200, headers, body: JSON.stringify({ status: "Survey Saved (Mock)" }) };
     }
 
     return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: `Not Found: ${cleanPath}`, raw_path: path, strategy: 'flexible_match' })
+        body: JSON.stringify({
+            error: "Not Found",
+            clean_path: cleanPath,
+            raw_path: path,
+            method: method
+        })
     };
 };
 
 // ------------------------------------------------------------------
 // 핸들러 함수들
 // ------------------------------------------------------------------
-
-// ... (handleLoginEmail, handleSurveyCategories 는 기존과 동일하므로 생략하지 않고 아래에 재작성)
 
 async function handleLoginEmail(event, headers) {
     let body = {};
@@ -125,7 +155,6 @@ async function handleSurveyCategories(event, headers) {
     };
 }
 
-// [신규] 유저 정보 조회 (Authorization 헤더 파싱)
 async function handleGetMe(event, headers) {
     const authHeader = event.headers.authorization || event.headers.Authorization;
 
@@ -140,10 +169,9 @@ async function handleGetMe(event, headers) {
         return { statusCode: 401, headers, body: JSON.stringify({ error: "Invalid Token" }) };
     }
 
-    // 필요한 경우 DB에서 추가 프로필 정보를 가져와서 합쳐야 하지만, MVP에서는 Auth User 정보만 리턴
     return {
         statusCode: 200,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(user) // user 객체 그대로 반환 (id, email, metadata 등 포함)
+        body: JSON.stringify(user)
     };
 }
