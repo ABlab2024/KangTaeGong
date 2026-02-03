@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 from app.core.config import settings
@@ -42,6 +42,20 @@ app.include_router(simulation.router, prefix="/api/v1", tags=["simulation"])
 app.include_router(survey.router, prefix="/api/v1/survey", tags=["survey"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(tracking.router, prefix="/api/v1/track", tags=["tracking"])
+
+
+# Debugging: Catch-all route to inspect paths on Netlify
+@app.api_route("/{path_name:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def catch_all(request: Request, path_name: str):
+    return {
+        "status": "404 Main Catch-all",
+        "message": "The requested path was not found in defined routers.",
+        "received_path": path_name,
+        "method": request.method,
+        "original_scope_path": request.scope.get("path"),
+        "root_path": request.scope.get("root_path"),
+        "headers": dict(request.headers),
+    }
 
 
 # Netlify Functions Handler
