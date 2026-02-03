@@ -3,12 +3,12 @@ import client from './client';
 export const authApi = {
     // 이메일 전용 로그인 (MVP용)
     loginWithEmail: async (email, ageGroup = null, gender = null) => {
-        const params = new URLSearchParams();
-        params.append('email', email);
-        if (ageGroup) params.append('age_group', ageGroup);
-        if (gender) params.append('gender', gender);
-
-        const response = await client.post(`/login/email?${params.toString()}`);
+        // Body에 데이터를 담아 전송 (표준 방식)
+        const response = await client.post('/login/email', {
+            email,
+            age_group: ageGroup,
+            gender: gender
+        });
         return response.data;
     },
 
