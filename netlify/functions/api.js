@@ -14,60 +14,67 @@ exports.handler = async function (event, context) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
 
     const path = event.path;
-    const cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '').split('?')[0];
+    // Handle various path styles
+    let cleanPath = path
+        .replace(/^\/\.netlify\/functions\/api/, '')
+        .replace(/^\/api\/v1/, '')
+        .split('?')[0];
+
+    // Ensure cleanPath starts with /
+    if (!cleanPath.startsWith('/')) cleanPath = '/' + cleanPath;
+
     const method = (event.httpMethod || '').toUpperCase();
 
-    // Debugging info (remove in production if desired)
-    console.log(`[${method}] ${cleanPath}`);
-
     try {
-        if (!supabase) throw new Error("Supabase environment variables missing");
+        if (!supabase) throw new Error("Supabase environment variables (SUPABASE_URL, SUPABASE_KEY) are missing in Netlify settings.");
 
         // --- ROUTES ---
 
-        // 0. Base / Health
-        if (cleanPath === '/' || cleanPath === '') {
+        // Health check
+        if (cleanPath === '/' || cleanPath === '/health') {
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify({ message: "KangTaeGong JS API is running", version: "1.0.1" })
+                body: JSON.stringify({ status: "ok", engine: "JS Serverless", timestamp: new Date().toISOString() })
             };
         }
 
-        // 1. Auth: Login (POST /login/email)
-        if (cleanPath === '/login/email' || path.endsWith('/login/email')) {
+        // Login
+        if (cleanPath === '/login/email') {
             return await handleLoginEmail(event, headers);
         }
 
-        // 2. Users: Get Me (GET /users/me)
-        if (cleanPath === '/users/me' || path.endsWith('/users/me')) {
+        // Users
+        if (cleanPath === '/users/me') {
             return await handleGetMe(event, headers);
         }
 
-        // 3. Survey: Categories (GET /survey/categories)
-        if (cleanPath === '/survey/categories' || path.endsWith('/survey/categories')) {
+        // Survey
+        if (cleanPath === '/survey/categories') {
             return await handleGetCategories(event, headers);
         }
-
-        // 4. Survey: Submit (POST /survey/submit)
-        if (cleanPath === '/survey/submit' || path.endsWith('/survey/submit')) {
+        if (cleanPath === '/survey/submit') {
             return await handleSubmitSurvey(event, headers);
         }
 
-        // 5. Simulation: Stats (GET /simulation/stats)
-        if (cleanPath === '/simulation/stats' || path.endsWith('/simulation/stats')) {
+        // Simulation
+        if (cleanPath === '/simulation/stats') {
             return await handleGetSimulationStats(event, headers);
         }
 
-        // 6. Threats: List (GET /threats)
-        if (cleanPath === '/threats' || path.endsWith('/threats')) {
+        // Threats
+        if (cleanPath === '/threats') {
             return await handleGetThreats(event, headers);
         }
 
         return {
             statusCode: 404,
             headers,
-            body: JSON.stringify({ error: "Endpoint Not Found", path: cleanPath, method })
+            body: JSON.stringify({
+                error: "Endpoint Not Found",
+                requested_path: cleanPath,
+                actual_path: path
+            })
         };
     } catch (err) {
         console.error("Handler Error:", err);
@@ -80,25 +87,38 @@ exports.handler = async function (event, context) {
 };
 
 /**
- * PARSE DATA (Body or Query)
+ * Robust Data Parsing
  */
 function getRequestData(event) {
     let data = {};
+
+    // 1. Parse Body
     if (event.body) {
         try {
-            const bodyStr = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body;
-            data = JSON.parse(bodyStr);
+            const bodyStr = event.isBase64Encoded
+                ? Buffer.from(event.body, 'base64').toString()
+                : event.body;
+
+            // Try JSON
+            try {
+                data = JSON.parse(bodyStr);
+            } catch (e) {
+                // Try URL encoded if JSON fails
+                const params = new URLSearchParams(bodyStr);
+                params.forEach((value, key) => {
+                    data[key] = value;
+                });
+            }
         } catch (e) {
-            console.error("JSON Parse Error");
+            console.error("Body parse error:", e);
         }
     }
-    // Merge with query params (query params overwrite body for convenience in quick testing)
-    return { ...data, ...(event.queryStringParameters || {}) };
+
+    // 2. Merge with Query Parameters (overwrites body for easy testing)
+    const query = event.queryStringParameters || {};
+    return { ...data, ...query };
 }
 
-/**
- * AUTH HELPER
- */
 async function getUserFromEvent(event) {
     const authHeader = event.headers.authorization || event.headers.Authorization;
     if (!authHeader) return null;
@@ -108,13 +128,11 @@ async function getUserFromEvent(event) {
 }
 
 /**
- * 1. Login with Email
+ * 1. Login with Email (POST /login/email)
  */
 async function handleLoginEmail(event, headers) {
     const data = getRequestData(event);
     const email = data.email;
-    const age_group = data.age_group;
-    const gender = data.gender;
 
     if (!email) {
         return {
@@ -122,7 +140,12 @@ async function handleLoginEmail(event, headers) {
             headers,
             body: JSON.stringify({
                 error: "Email required",
-                hint: "Please provide email in JSON body or query parameter '?email=...'"
+                debug: {
+                    received_method: event.httpMethod,
+                    received_data: data,
+                    content_type: event.headers['content-type'] || 'none'
+                },
+                hint: "Ensure you are sending 'email' in the JSON body or as a query parameter '?email=...'"
             })
         };
     }
@@ -131,17 +154,17 @@ async function handleLoginEmail(event, headers) {
     let { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-        // Auto-signup
+        // Auto-signup if user doesn't exist
         const signUpRes = await supabase.auth.signUp({
             email,
             password,
-            options: { data: { age_group, gender } }
+            options: { data: { age_group: data.age_group, gender: data.gender } }
         });
         if (signUpRes.error) return { statusCode: 400, headers, body: JSON.stringify({ error: signUpRes.error.message }) };
         authData = signUpRes.data;
     }
 
-    // Onboarding status
+    // Check onboarding status
     const { data: profile } = await supabase
         .from('user_profiles')
         .select('onboarding_completed')
@@ -155,7 +178,7 @@ async function handleLoginEmail(event, headers) {
             access_token: authData.session?.access_token,
             email: authData.user.email,
             user_id: authData.user.id,
-            onboarding_completed: profile ? profile.onboarding_completed : false
+            onboarding_completed: profile ? !!profile.onboarding_completed : false
         })
     };
 }
