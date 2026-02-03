@@ -5,6 +5,8 @@ import Login from '@/pages/Login';
 import Signup from '@/pages/Signup';
 import Onboarding from '@/pages/Onboarding';
 import Dashboard from '@/pages/Dashboard';
+import TrainingComplete from '@/pages/TrainingComplete';
+
 
 const queryClient = new QueryClient();
 
@@ -18,6 +20,8 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/training-complete" element={<TrainingComplete />} />
+
         </Routes>
       </Router>
     </QueryClientProvider>

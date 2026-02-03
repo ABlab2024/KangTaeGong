@@ -87,6 +87,7 @@ export const sendSimulation = async (params) => {
                 created_at: new Date().toISOString()
             });
 
+
         if (error) throw error;
         return { success: true, data };
 

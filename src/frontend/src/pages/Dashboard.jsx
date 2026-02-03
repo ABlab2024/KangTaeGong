@@ -45,8 +45,14 @@ export default function Dashboard() {
     });
 
     const handleSendSimulation = () => {
-        sendMutation.mutate({ scenario: selectedScenario });
+        // Find the first threat from query to get a real ID if available
+        const latestThreat = threats?.[0]?.id;
+        sendMutation.mutate({
+            scenario: selectedScenario,
+            threat_case_id: latestThreat
+        });
     };
+
 
     const statCards = [
         {
@@ -63,10 +69,13 @@ export default function Dashboard() {
         },
         {
             label: "클릭률",
-            value: stats?.click_rate || "0%",
+            value: stats?.click_rate || (stats?.total_simulations > 0
+                ? `${Math.round((stats.clicked_count / stats.total_simulations) * 100)}%`
+                : "0%"),
             icon: TrendingUp,
             color: "text-neon-pink"
         },
+
     ];
 
     return (
@@ -231,11 +240,12 @@ export default function Dashboard() {
                                 </div>
                                 <p className="text-xs text-center text-gray-400">
                                     총 {stats?.total_simulations || 0}개의 훈련이 진행되었습니다.
-                                    {stats?.links_clicked > 0 && (
+                                    {stats?.clicked_count > 0 && (
                                         <span className="block text-neon-pink mt-1">
-                                            ⚠️ {stats.links_clicked}회 피싱 링크 클릭
+                                            ⚠️ {stats.clicked_count}회 피싱 링크 클릭
                                         </span>
                                     )}
+
                                 </p>
                             </CardContent>
                         </Card>
