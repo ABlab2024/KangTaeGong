@@ -1,31 +1,23 @@
 [build]
   base = "/"
-  # 
-  command = "pip install -r requirements.txt && cd src/frontend && npm install && npm run build"
+  # 이제 Python 의존성 설치 안 함 -> JS 의존성만 설치
+  command = "cd src/frontend && npm install && npm run build"
   publish = "src/frontend/dist"
 
 [functions]
   directory = "netlify/functions"
-  # included_files 경로 명확화 (윈도우/리눅스 경로 호환성 고려)
-  included_files = ["src/backend/app/**/*.py"]
+  # node_modules 포함 ( @supabase/supabase-js 등)
+  node_bundler = "esbuild"
+  # Python 파일 포함 필요 없음
 
-# 1. Hello Function 테스트용 리다이렉트
 [[redirects]]
-  from = "/api/hello"
-  to = "/.netlify/functions/hello"
-  status = 200
-  force = true
-
-# 2. API Backend 리다이렉트 (가장 높은 우선순위)
-[[redirects]]
+  # API 요청 -> JS Function으로
   from = "/api/v1/*"
-  to = "/.netlify/functions/api"
+  to = "/.netlify/functions/api" # api.js 가 실행됨
   status = 200
   force = true 
 
-# 3. SPA(React) 리다이렉트 (마지막 우선순위)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  # force = true 제거됨 (의도적)
