@@ -34,13 +34,8 @@ exports.handler = async function (event, context) {
     // 가장 안전한 방법: "login/email"이 포함되어 있는지 확인하는 것.
     let path = event.path;
 
-    // 디버깅 메시지를 위해 정제 시도
+    // 디버 debugging 메시지를 위해 정제 시도
     let cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '');
-
-    // -----------------------------------------------------------------------
-    // [중요] 경로 매칭 로직 완화
-    // 정확한 일치(===) 대신 'endsWith'나 'includes' 사용하여 유연하게 처리
-    // -----------------------------------------------------------------------
 
     // 디버그
     if (path.includes('/debug')) {
@@ -68,9 +63,21 @@ exports.handler = async function (event, context) {
 
     try {
         // [수정된 매칭 로직]: /login/email 로 끝나거나 포함되면 OK
-        if (cleanPath === '/login/email' || path.endsWith('/login/email')) {
+        // [중요] query string이 있는 경우 path에도 포함될 수 있으므로, '?' 앞부분만 잘라서 비교
+        const pathPart = cleanPath.split('?')[0];
+
+        if (pathPart === '/login/email' || path.endsWith('/login/email')) {
             if (event.httpMethod !== 'POST') {
-                return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+                // 405 Method Not Allowed
+                // 하지만 일부 브라우저/프록시 이슈를 피하기 위해, OPTIONS가 아닌데 POST가 아니면 에러 리턴
+                return {
+                    statusCode: 405,
+                    headers,
+                    body: JSON.stringify({
+                        error: "Method Not Allowed",
+                        received_method: event.httpMethod
+                    })
+                };
             }
 
             let body = {};
@@ -80,7 +87,13 @@ exports.handler = async function (event, context) {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid JSON body" }) };
             }
 
-            const { email, age_group, gender } = body;
+            // URL Query String 파라미터도 확인 (프론트가 query로 보낼 수도 있음)
+            const queryParams = event.queryStringParameters || {};
+
+            const email = body.email || queryParams.email;
+            const age_group = body.age_group || queryParams.age_group;
+            const gender = body.gender || queryParams.gender;
+
             if (!email) {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: "Email required" }) };
             }
