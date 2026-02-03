@@ -19,14 +19,18 @@ export default function TrainingComplete() {
                 }
 
                 // 시뮬레이션 클릭 로그 기록
+                // threatId가 유효한 UUID 형식이 아닐 경우 null 처리
+                const validThreatId = (threatId && threatId !== 'undefined' && threatId.length === 36) ? threatId : null;
+
                 const { error } = await supabase
                     .from('simulation_logs')
                     .insert({
                         user_id: user.id,
-                        threat_id: threatId || null,
+                        threat_id: validThreatId,
                         event_type: 'CLICKED',
                         created_at: new Date().toISOString()
                     });
+
 
                 if (error) throw error;
                 setStatus('recorded');

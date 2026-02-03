@@ -46,6 +46,13 @@ export const sendSimulation = async (params) => {
     // Construct Email Content (Simple version)
     // In production, use a proper template engine
     const emailSubject = params.custom_subject || scenario.name;
+
+    // Construct Landing URL safely
+    const landingUrl = new URL(`${window.location.origin}/training-complete`);
+    if (params.threat_case_id) {
+        landingUrl.searchParams.set('id', params.threat_case_id);
+    }
+
     const emailBody = `
       <div style="font-family: sans-serif; padding: 20px;">
         <h2>${emailSubject}</h2>
@@ -53,12 +60,13 @@ export const sendSimulation = async (params) => {
         <p>${params.custom_message || scenario.description}</p>
         <p>이것은 피싱 예방 훈련을 위한 시뮬레이션 이메일입니다.</p>
         <br>
-        <a href="${window.location.origin}/training-complete?id=${params.threat_case_id}" 
+        <a href="${landingUrl.toString()}" 
            style="background-color: #d946ef; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
            확인하기
         </a>
       </div>
     `;
+
 
     try {
         const emailResponse = await fetch('/.netlify/functions/send-email', {
