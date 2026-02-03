@@ -13,16 +13,14 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.user_profile import UserProfile
 from app.schemas.token import Token
-from app.schemas.user import UserCreate, User as UserSchema
+from app.schemas.user import UserCreate, User as UserSchema, LoginEmail
 
 router = APIRouter()
 
 
 @router.post("/login/email")
 async def login_with_email(
-    email: str,
-    age_group: Optional[str] = None,
-    gender: Optional[str] = None,
+    login_in: LoginEmail,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """
@@ -30,6 +28,9 @@ async def login_with_email(
     이메일이 존재하면 로그인, 없으면 자동 가입 후 로그인.
     설문조사 완료 여부를 함께 반환합니다.
     """
+    email = login_in.email
+    age_group = login_in.age_group
+    gender = login_in.gender
     # 1. Check if user exists
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalars().first()

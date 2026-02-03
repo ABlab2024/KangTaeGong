@@ -39,3 +39,8 @@ class User(UserInDBBase):
 
 class UserInDB(UserInDBBase):
     hashed_password: str
+
+class LoginEmail(BaseModel):
+    email: EmailStr
+    age_group: Optional[str] = None
+    gender: Optional[str] = None
