@@ -3,8 +3,8 @@ import client from './client';
 export const authApi = {
     // 이메일 전용 로그인 (MVP용)
     loginWithEmail: async (email, ageGroup = null, gender = null) => {
-        // Body에 데이터를 담아 전송 (표준 방식)
-        const response = await client.post('/login/email', {
+        // Body에 데이터를 담으면서 동시에 Query Parameter로도 전송 (Netlify 리다이렉트 시 데이터 유실 방지)
+        const response = await client.post(`/login/email?email=${encodeURIComponent(email)}`, {
             email,
             age_group: ageGroup,
             gender: gender
