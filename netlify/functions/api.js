@@ -18,7 +18,7 @@ exports.handler = async function (event, context) {
     const headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
     };
 
     if (event.httpMethod === 'OPTIONS') {
@@ -30,6 +30,7 @@ exports.handler = async function (event, context) {
     let cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '').split('?')[0];
 
     // 라우팅 로직
+
     // 1. 로그인 (POST /login/email)
     if (cleanPath === '/login/email' || path.endsWith('/login/email')) {
         if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: 'Methods Not Allowed' };
@@ -39,6 +40,12 @@ exports.handler = async function (event, context) {
     // 2. 카테고리 (GET /survey/categories)
     if (cleanPath === '/survey/categories' || path.endsWith('/survey/categories')) {
         return handleSurveyCategories(event, headers);
+    }
+
+    // 3. 내 정보 조회 (GET /users/me) - *새로 추가한 부분*
+    if (cleanPath === '/users/me' || path.endsWith('/users/me')) {
+        if (event.httpMethod !== 'GET') return { statusCode: 405, headers, body: 'Use GET' };
+        return handleGetMe(event, headers);
     }
 
     return {
@@ -51,6 +58,8 @@ exports.handler = async function (event, context) {
 // ------------------------------------------------------------------
 // 핸들러 함수들
 // ------------------------------------------------------------------
+
+// ... (handleLoginEmail, handleSurveyCategories 는 기존과 동일하므로 생략하지 않고 아래에 재작성)
 
 async function handleLoginEmail(event, headers) {
     let body = {};
@@ -100,8 +109,6 @@ async function handleLoginEmail(event, headers) {
 }
 
 async function handleSurveyCategories(event, headers) {
-    // MVP 카테고리 데이터 하드코딩 (DB 조회 대신)
-    // 원래는 python 백엔드에서 router로 분기하던 것을 여기서 처리
     const categories = [
         { id: "finance", name_ko: "금융/자산", name_en: "finance" },
         { id: "delivery", name_ko: "택배/쇼핑", name_en: "delivery" },
@@ -115,5 +122,28 @@ async function handleSurveyCategories(event, headers) {
         statusCode: 200,
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify(categories)
+    };
+}
+
+// [신규] 유저 정보 조회 (Authorization 헤더 파싱)
+async function handleGetMe(event, headers) {
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+
+    if (!authHeader) {
+        return { statusCode: 401, headers, body: JSON.stringify({ error: "Missing Token" }) };
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+        return { statusCode: 401, headers, body: JSON.stringify({ error: "Invalid Token" }) };
+    }
+
+    // 필요한 경우 DB에서 추가 프로필 정보를 가져와서 합쳐야 하지만, MVP에서는 Auth User 정보만 리턴
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(user) // user 객체 그대로 반환 (id, email, metadata 등 포함)
     };
 }
