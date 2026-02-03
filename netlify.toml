@@ -1,14 +1,6 @@
 [build]
-  # 빌드 시작 위치를 다시 프로젝트 루트("/")로 변경합니다.
-  # 그래야 backend, frontend 폴더 모두에 접근하기 편합니다.
   base = "/"
-  
-  # 1) Python 의존성 설치
-  # 2) Frontend 폴더로 이동 후 설치 & 빌드
   command = "pip install -r src/backend/requirements.txt && cd src/frontend && npm install && npm run build"
-  
-  # 최종 빌드 결과물 위치
-  # base가 "/"이므로, 전체 경로를 적어줍니다.
   publish = "src/frontend/dist"
 
 [functions]
@@ -21,9 +13,6 @@
 
 [[redirects]]
   from = "/*"
-  to = "/src/frontend/index.html" # 빌드 결과물이 아닌 소스일 경우 수정 필요하나, 사실 publish dir 기준으로 작동함.
-  # publish가 src/frontend/dist 이므로 사실 to = "/index.html"이 맞음. 
-  # 하지만 dist 안의 구조에 따라 다르니, 일단 SPA 라우팅을 위해 아래와 같이 합니다.
   to = "/index.html"
   status = 200
-  force = true # 강제 리다이렉트
+  force = true
