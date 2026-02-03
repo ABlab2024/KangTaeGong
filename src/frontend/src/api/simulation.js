@@ -49,11 +49,15 @@ export const sendSimulation = async (params) => {
 
     // Construct Landing URL safely
     const landingUrl = new URL(`${window.location.origin}/training-complete`);
-    if (params.threat_case_id) {
-        landingUrl.searchParams.set('id', params.threat_case_id);
+
+    // Explicitly check for truthy and not the string "undefined"
+    const tid = params.threat_case_id;
+    if (tid && tid !== 'undefined' && tid !== 'null') {
+        landingUrl.searchParams.set('id', tid);
     }
 
     const emailBody = `
+
       <div style="font-family: sans-serif; padding: 20px;">
         <h2>${emailSubject}</h2>
         <p>안녕하세요 ${user.email}님,</p>
