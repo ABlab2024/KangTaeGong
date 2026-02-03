@@ -36,6 +36,12 @@ exports.handler = async function (event, context) {
 
     // 1. 로그인 (POST /login/email)
     if (cleanPath === '/login/email' || path.endsWith('/login/email')) {
+        // [예외 처리] 브라우제/Netlify 이슈로 GET으로 리다이렉트 된 경우, 
+        // 혹시라도 쿼리파라미터에 email이 있으면 로그인을 시도해본다 (UX 개선)
+        if (method === 'GET' && event.queryStringParameters && event.queryStringParameters.email) {
+            return handleLoginEmail(event, headers);
+        }
+
         if (method !== 'POST') {
             return {
                 statusCode: 405,
@@ -43,7 +49,8 @@ exports.handler = async function (event, context) {
                 body: JSON.stringify({
                     error: "Method Not Allowed (Login)",
                     received_method: method,
-                    path: cleanPath
+                    path: cleanPath,
+                    hint: "Please allow some time for the frontend CDN to update, or try Ctrl+Shift+R."
                 })
             };
         }
@@ -57,22 +64,13 @@ exports.handler = async function (event, context) {
 
     // 3. 내 정보 조회 (GET /users/me)
     if (cleanPath === '/users/me' || path.endsWith('/users/me')) {
-        if (method !== 'GET') {
-            return {
-                statusCode: 405,
-                headers,
-                body: JSON.stringify({
-                    error: "Method Not Allowed (Users Me)",
-                    received_method: method
-                })
-            };
-        }
         return handleGetMe(event, headers);
     }
 
-    // 디버그용: POST /survey -> 일단 성공 처리 (임시)
+    // 4. 설문 제출 (POST /survey) - 디버깅용 모의 구현
     if (cleanPath === '/survey' || path.endsWith('/survey')) {
-        return { statusCode: 200, headers, body: JSON.stringify({ status: "Survey Saved (Mock)" }) };
+        if (method !== 'POST') return { statusCode: 405, headers, body: 'Use POST' };
+        return { statusCode: 200, headers, body: JSON.stringify({ status: "Success", message: "Survey saved (Mock)" }) };
     }
 
     return {
@@ -137,6 +135,9 @@ async function handleLoginEmail(event, headers) {
         })
     };
 }
+
+// ... handleSurveyCategories, handleGetMe 는 기존과 동일하므로 생략 (문자열 아끼기)
+// 아래 코드는 위에서 export한 핸들러에서 호출되므로, 함수 정의만 확실하면 됨.
 
 async function handleSurveyCategories(event, headers) {
     const categories = [
