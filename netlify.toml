@@ -7,12 +7,17 @@
   directory = "netlify/functions"
 
 [[redirects]]
+  # API 요청은 Python Serverless Function으로 전달
   from = "/api/v1/*"
   to = "/.netlify/functions/api"
   status = 200
+  force = true 
 
 [[redirects]]
+  # 나머지 요청은 React SPA(index.html)로 전달
+  # 중요: force = true를 제거해야 합니다. 
+  # 그래야 js, css, 이미지 등 실제 존재하는 파일은 그대로 서빙되고, 
+  # 존재하지 않는 경로(페이지 라우팅)만 index.html로 갑니다.
   from = "/*"
   to = "/index.html"
   status = 200
-  force = true
