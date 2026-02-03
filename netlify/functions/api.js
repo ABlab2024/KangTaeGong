@@ -30,27 +30,34 @@ exports.handler = async function (event, context) {
         return { statusCode: 200, headers, body: '' };
     }
 
-    // 경로 파싱 수정: ?queryString 제거
-    // event.path는 query string을 포함하지 않지만, 혹시 모르니 안전하게 처리
-    // .replace 정규식 사용하여 더 깔끔하게 처리
-    let path = event.path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '');
+    // 경로 파싱: Netlify의 path는 이미 리다이렉트 전의 원본 path일 수도 있고 아닐 수도 있음.
+    // 가장 안전한 방법: "login/email"이 포함되어 있는지 확인하는 것.
+    let path = event.path;
 
-    // 디버그: 어떤 Path가 들어왔는지 확인 (400 에러 시 body에 포함해서 보여줌)
-    const debugPath = path;
+    // 디버깅 메시지를 위해 정제 시도
+    let cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api\/v1/, '');
 
-    if (path === '/debug') {
+    // -----------------------------------------------------------------------
+    // [중요] 경로 매칭 로직 완화
+    // 정확한 일치(===) 대신 'endsWith'나 'includes' 사용하여 유연하게 처리
+    // -----------------------------------------------------------------------
+
+    // 디버그
+    if (path.includes('/debug')) {
         return {
             statusCode: 200,
             headers,
             body: JSON.stringify({
                 status: "Debug Info",
                 supabase_initialized: !!supabase,
-                path_received: debugPath,
+                raw_path: path,
+                clean_path: cleanPath,
                 env_check: !!supabaseKey
             })
         };
     }
 
+    // 환경변수 체크
     if (!supabase) {
         return {
             statusCode: 500,
@@ -60,9 +67,12 @@ exports.handler = async function (event, context) {
     }
 
     try {
-        // 실제 동작부
-        // path가 '/login/email' 인지 확인
-        if (path === '/login/email' && event.httpMethod === 'POST') {
+        // [수정된 매칭 로직]: /login/email 로 끝나거나 포함되면 OK
+        if (cleanPath === '/login/email' || path.endsWith('/login/email')) {
+            if (event.httpMethod !== 'POST') {
+                return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+            }
+
             let body = {};
             try {
                 body = JSON.parse(event.body || '{}');
@@ -72,11 +82,7 @@ exports.handler = async function (event, context) {
 
             const { email, age_group, gender } = body;
             if (!email) {
-                return {
-                    statusCode: 400,
-                    headers,
-                    body: JSON.stringify({ error: "Email required", received_body: body })
-                };
+                return { statusCode: 400, headers, body: JSON.stringify({ error: "Email required" }) };
             }
 
             // 1. SignIn
@@ -87,15 +93,12 @@ exports.handler = async function (event, context) {
 
             // 2. SignUp
             if (error) {
-                // 로그인 실패 -> 회원가입 시도
-                // console.log("Login failed, trying signup:", error.message);
                 const signUpRes = await supabase.auth.signUp({
                     email,
                     password: "kangtaegong_mvp_password",
                     options: { data: { age_group, gender } }
                 });
                 if (signUpRes.error) {
-                    // 회원가입 실패 (예: Rate limit, Invalid password 등)
                     return {
                         statusCode: 400,
                         headers,
@@ -119,7 +122,7 @@ exports.handler = async function (event, context) {
         return {
             statusCode: 404,
             headers,
-            body: JSON.stringify({ error: `Not Found: ${path}`, received_path: path })
+            body: JSON.stringify({ error: `Not Found: ${cleanPath}`, raw_path: path, strategy: 'flexible_match' })
         };
 
     } catch (err) {
