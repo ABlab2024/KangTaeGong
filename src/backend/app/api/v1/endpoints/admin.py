@@ -3,7 +3,7 @@ Admin API endpoints for KangTaeGong MVP.
 Handles user management, training schedules, and statistics.
 """
 from typing import Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import random
 from uuid import UUID
@@ -13,6 +13,7 @@ from sqlalchemy import select, func
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.services.scheduler import process_pending_schedules
 from app.db.session import get_db
 from app.models.user import User
 from app.models.user_profile import UserProfile
@@ -709,10 +710,15 @@ async def create_schedule(
     
     created_schedules = []
     for user in users:
+        # Ensure scheduled_date is Naive UTC
+        dt = request.scheduled_date
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            
         schedule = TrainingSchedule(
             user_id=user.id,
             scenario_id=request.scenario_id,
-            scheduled_date=request.scheduled_date,
+            scheduled_date=dt,
             title=request.title,
             is_sent=False
         )
@@ -764,6 +770,11 @@ async def update_schedule(
     update_data = request.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if value is not None:
+            # Handle timezone for scheduled_date
+            if field == "scheduled_date" and isinstance(value, datetime):
+                if value.tzinfo is not None:
+                    value = value.astimezone(timezone.utc).replace(tzinfo=None)
+            
             setattr(schedule, field, value)
     
     await db.commit()
@@ -802,6 +813,17 @@ async def delete_schedule(
     await db.commit()
     
     return {"message": "Schedule deleted successfully", "deleted_id": schedule_id}
+
+
+@router.post("/schedule/process")
+async def trigger_schedule_processing(
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """대기 중인 스케줄을 즉시 처리합니다. (수동 트리거)"""
+    # Background processing
+    await process_pending_schedules()
+    
+    return {"message": "Schedule processing triggered"}
 
 
 @router.get("/stats/scenario")
