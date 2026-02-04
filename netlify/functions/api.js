@@ -233,17 +233,22 @@ async function handleLoginEmail(event, headers) {
 
             if (adminError) {
                 // If user already exists but isn't confirmed, try to update them
-                if (adminError.message.includes("already registered") || adminError.message.includes("already exists")) {
+                // Error message: "A user with this email address has already been registered"
+                if (adminError.message.includes("registered") || adminError.message.includes("exists")) {
                     // We need user ID to update. Let's get it by email.
-                    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+                    // Note: listUsers defaults to 50 users. For MVP this is fine.
+                    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
                     const existingUser = users.find(u => u.email === email);
 
                     if (existingUser) {
                         await supabase.auth.admin.updateUserById(existingUser.id, {
                             email_confirm: true,
+                            password: password, // Reset password to ensure login succeeds
                             user_metadata: { age_group: data.age_group, gender: data.gender }
                         });
-                        console.log(`User ${email} updated to confirmed via admin.`);
+                        console.log(`User ${email} updated to confirmed and password reset via admin.`);
+                    } else {
+                        console.warn(`User ${email} exists but not found in admin list (pagination?). Login retry might fail.`);
                     }
                 } else {
                     return { statusCode: 400, headers, body: JSON.stringify({ error: `Admin Setup Error: ${adminError.message}` }) };

@@ -1,4 +1,10 @@
--- Supabase SQL Editor에서 실행하여 RLS 정책을 설정하세요.
+-- 0. 기존 정책 삭제 (충돌 방지)
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.users;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.users;
+DROP POLICY IF EXISTS "Users can view own profile details" ON public.user_profiles;
+DROP POLICY IF EXISTS "Users can insert own profile details" ON public.user_profiles;
+DROP POLICY IF EXISTS "Users can update own profile details" ON public.user_profiles;
 
 -- 1. users 테이블 RLS 활성화
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -35,12 +41,3 @@ WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own profile details" 
 ON public.user_profiles FOR UPDATE 
 USING (auth.uid() = user_id);
-
--- 3. (옵션) 기존 정책 삭제 후 재생성하려면 아래 주석 해제 후 실행
-/*
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.users;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
-DROP POLICY IF EXISTS "Users can view own profile details" ON public.user_profiles;
-DROP POLICY IF EXISTS "Users can insert own profile details" ON public.user_profiles;
-DROP POLICY IF EXISTS "Users can update own profile details" ON public.user_profiles;
-*/
