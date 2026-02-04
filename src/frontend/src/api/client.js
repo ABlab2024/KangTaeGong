@@ -10,17 +10,21 @@ const client = axios.create({
 // Request Interceptor: Add Token
 client.interceptors.request.use((config) => {
     // Check if it's an admin request
-    // Note: baseURL might be prepended, so we check url.
-    // However, axios config.url is relative if baseURL is set.
     if (config.url?.includes('/admin/')) {
         const adminToken = localStorage.getItem('admin_token');
         if (adminToken) {
             config.headers.Authorization = `Bearer ${adminToken}`;
+            console.log("🔒 Attached Admin Token to request");
+        } else {
+            console.warn("⚠️ No Admin Token found in localStorage");
         }
     } else {
         const token = localStorage.getItem('access_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log("🔒 Attached User Token to request");
+        } else {
+            console.warn("⚠️ No Access Token found in localStorage. Request might fail.");
         }
     }
     return config;
