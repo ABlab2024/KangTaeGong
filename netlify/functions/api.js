@@ -44,6 +44,18 @@ exports.handler = async function (event, context) {
             };
         }
 
+        // Header Debugging
+        if (cleanPath === '/debug/headers') {
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    headers: event.headers,
+                    raw_auth: event.headers.authorization || event.headers.Authorization || "MISSING"
+                })
+            };
+        }
+
         // Login
         if (cleanPath === '/login/email') {
             return await handleLoginEmail(event, headers);
@@ -158,7 +170,7 @@ async function getUserFromEvent(event) {
         const token = authHeader.replace(/^Bearer /i, '').trim();
 
         if (!token) {
-            console.warn("Empty token after extraction");
+            console.warn("Empty token after extraction. Auth Header:", authHeader);
             return null;
         }
 
