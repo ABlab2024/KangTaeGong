@@ -44,14 +44,20 @@ exports.handler = async function (event, context) {
             };
         }
 
-        // Header Debugging
+        // Header Debugging & Env Check
         if (cleanPath === '/debug/headers') {
             return {
                 statusCode: 200,
                 headers,
                 body: JSON.stringify({
                     headers: event.headers,
-                    raw_auth: event.headers.authorization || event.headers.Authorization || "MISSING"
+                    raw_auth: event.headers.authorization || event.headers.Authorization || "MISSING",
+                    env: {
+                        SUPABASE_URL: !!process.env.SUPABASE_URL,
+                        SUPABASE_KEY: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY),
+                        ADMIN_EMAIL: !!process.env.ADMIN_EMAIL
+                    },
+                    timestamp: new Date().toISOString()
                 })
             };
         }
