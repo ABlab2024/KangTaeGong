@@ -1,6 +1,13 @@
 [build]
-  command = "pip install -r src/backend/requirements.txt"
-  publish = "."
+  base = "src/frontend"
+  command = "npm run build"
+  publish = "src/frontend/dist"
+
+[dev]
+  command = "npm --prefix src/frontend run dev"
+  targetPort = 5173
+  port = 8888
+  autoLaunch = false
 
 [functions]
   directory = "netlify/functions"
