@@ -149,3 +149,4 @@ allow_origin_regex=r"https://.*\.vercel\.app"
 - [Vercel 공식 문서](https://vercel.com/docs)
 - [Vite 배포 가이드](https://vitejs.dev/guide/static-deploy.html#vercel)
 - [Render 배포 (Backend)](https://render.com/docs/deploy-fastapi)
+dd
