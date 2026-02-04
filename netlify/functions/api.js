@@ -369,16 +369,19 @@ async function handleSubmitSurvey(event, headers) {
     console.log(`Processing survey for user ${user.id}`, data);
 
     try {
-        // Update users table in public schema if it exists
-        // Note: 'users' table in public schema is separate from auth.users
-        const { error: userUpdateError } = await supabase.from('users').update({
+        // Ensure user exists in public.users table (FK dependency)
+        // Upsert instead of Update to handle missing records
+        const { error: userUpsertError } = await supabase.from('users').upsert({
+            id: user.id,
+            email: user.email,
             age_group: data.age_group,
-            gender: data.gender
-        }).eq('id', user.id);
+            gender: data.gender,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
 
-        if (userUpdateError) {
-            console.warn("Public 'users' table update failed (may not exist or permission issue):", userUpdateError.message);
-            // We continue because user_profiles update is more critical for onboarding
+        if (userUpsertError) {
+            console.warn("Public 'users' table upsert failed:", userUpsertError.message);
+            // If this fails and it's an FK issue, the next step will likely fail too.
         }
 
         // Upsert profile
