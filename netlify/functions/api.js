@@ -369,9 +369,18 @@ async function handleSubmitSurvey(event, headers) {
     console.log(`Processing survey for user ${user.id}`, data);
 
     try {
-        // Ensure user exists in public.users table (FK dependency)
-        // Upsert instead of Update to handle missing records
-        const { error: userUpsertError } = await supabase.from('users').upsert({
+        // Use SERVICE ROLE KEY to bypass RLS for critical data setup
+        // This ensures public.users and user_profiles are written regardless of RLS policies
+        const serviceParams = {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        };
+        const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY, serviceParams);
+
+        // 1. Upsert into public.users (BYPASS RLS)
+        const { error: userUpsertError } = await supabaseAdmin.from('users').upsert({
             id: user.id,
             email: user.email,
             age_group: data.age_group,
@@ -380,12 +389,12 @@ async function handleSubmitSurvey(event, headers) {
         }, { onConflict: 'id' });
 
         if (userUpsertError) {
-            console.warn("Public 'users' table upsert failed:", userUpsertError.message);
-            // If this fails and it's an FK issue, the next step will likely fail too.
+            console.error("ADMIN: Public 'users' table upsert failed:", userUpsertError.message);
+            throw new Error(`Public Users Sync Failed: ${userUpsertError.message}`);
         }
 
-        // Upsert profile
-        const { data: profile, error } = await supabase
+        // 2. Upsert into user_profiles (BYPASS RLS)
+        const { data: profile, error } = await supabaseAdmin
             .from('user_profiles')
             .upsert({
                 user_id: user.id,
@@ -402,9 +411,8 @@ async function handleSubmitSurvey(event, headers) {
             .single();
 
         if (error) {
-            console.error("Profile upsert error:", error);
-            console.error("Error details:", error.message, error.details, error.hint);
-            return { statusCode: 500, headers, body: JSON.stringify({ error: `Profile update failed: ${error.message}` }) };
+            console.error("ADMIN: Profile upsert error:", error);
+            throw new Error(`Profile Update Failed: ${error.message}`);
         }
 
         console.log("Survey submitted successfully for:", user.id);
@@ -415,7 +423,7 @@ async function handleSubmitSurvey(event, headers) {
         };
     } catch (e) {
         console.error("Unexpected error in handleSubmitSurvey:", e);
-        return { statusCode: 500, headers, body: JSON.stringify({ error: `Internal Server Error: ${e.message}` }) };
+        return { statusCode: 500, headers, body: JSON.stringify({ error: `Server Error: ${e.message}` }) };
     }
 }
 
