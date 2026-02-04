@@ -79,6 +79,9 @@ exports.handler = async function (event, context) {
         if (cleanPath === '/survey/submit') {
             return await handleSubmitSurvey(event, headers);
         }
+        if (cleanPath === '/survey/vulnerability') {
+            return await handleGetVulnerability(event, headers);
+        }
 
         // Admin Endpoints
         if (cleanPath.startsWith('/admin/')) {
@@ -461,6 +464,69 @@ async function handleGetSimulationStats(event, headers) {
             links_clicked: clicked,
             security_score: securityScore,
             click_rate: `${(clickRate * 100).toFixed(1)}%`
+        })
+    };
+}
+
+/**
+ * 6. Vulnerability Analysis
+ */
+async function handleGetVulnerability(event, headers) {
+    const { user, error: authError } = await getUserFromEvent(event);
+    if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: authError || "Unauthorized" }) };
+
+    // Get Profile
+    const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+    if (error) return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
+    if (!profile) return { statusCode: 404, headers, body: JSON.stringify({ error: "Profile not found" }) };
+
+    // Check if analysis exists
+    if (profile.vulnerability_analysis) {
+        return {
+            statusCode: 200,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                analysis: profile.vulnerability_analysis,
+                summary: profile.vulnerability_summary || ""
+            })
+        };
+    }
+
+    // Generate Mock Analysis if missing
+    const prefs = Array.isArray(profile.content_preferences) ? profile.content_preferences : [];
+    const analysisText = `사용자님은 ${prefs.join(', ')} 등의 콘텐츠에 높은 관심을 보이고 있습니다. 
+특히 이런 관심사를 악용한 '맞춤형 피싱 시도'에 취약할 수 있습니다. 
+예를 들어, 자주 이용하는 쇼핑몰의 할인 쿠폰이나, 관심 있는 분야의 급박한 뉴스를 가장한 스미싱 문자에 주의가 필요합니다.
+또한 ${profile.occupation || '직업'} 관련 업무를 사칭한 이메일 공격에도 대비가 필요합니다.`;
+
+    const summaryText = `${prefs[0] || '관심'} 분야 피싱 주의`;
+
+    // Save generated analysis
+    // Use Authenticated Client
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    const supabaseAuth = createClient(supabaseUrl, process.env.SUPABASE_KEY, {
+        global: { headers: { Authorization: authHeader } }
+    });
+
+    await supabaseAuth
+        .from('user_profiles')
+        .update({
+            vulnerability_analysis: analysisText,
+            vulnerability_summary: summaryText
+        })
+        .eq('user_id', user.id);
+
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            analysis: analysisText,
+            summary: summaryText
         })
     };
 }
