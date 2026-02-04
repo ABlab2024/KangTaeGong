@@ -13,6 +13,11 @@ CREATE POLICY "Users can update own profile"
 ON public.users FOR UPDATE 
 USING (auth.uid() = id);
 
+-- users 정책: 본인만 생성 가능 (Trigger 실패 시 대비)
+CREATE POLICY "Users can insert own profile" 
+ON public.users FOR INSERT 
+WITH CHECK (auth.uid() = id);
+
 -- 2. user_profiles 테이블 RLS 활성화
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 

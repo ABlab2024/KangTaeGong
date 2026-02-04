@@ -369,18 +369,17 @@ async function handleSubmitSurvey(event, headers) {
     console.log(`Processing survey for user ${user.id}`, data);
 
     try {
-        // Use SERVICE ROLE KEY to bypass RLS for critical data setup
-        // This ensures public.users and user_profiles are written regardless of RLS policies
-        const serviceParams = {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
+        // Create an Authenticated Client using the user's token
+        // This ensures RLS policies work correctly based on auth.uid()
+        const authHeader = event.headers.authorization || event.headers.Authorization;
+        const supabaseAuth = createClient(supabaseUrl, process.env.SUPABASE_KEY, {
+            global: {
+                headers: { Authorization: authHeader }
             }
-        };
-        const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY, serviceParams);
+        });
 
-        // 1. Upsert into public.users (BYPASS RLS)
-        const { error: userUpsertError } = await supabaseAdmin.from('users').upsert({
+        // 1. Upsert into public.users
+        const { error: userUpsertError } = await supabaseAuth.from('users').upsert({
             id: user.id,
             email: user.email,
             age_group: data.age_group,
@@ -389,12 +388,12 @@ async function handleSubmitSurvey(event, headers) {
         }, { onConflict: 'id' });
 
         if (userUpsertError) {
-            console.error("ADMIN: Public 'users' table upsert failed:", userUpsertError.message);
-            throw new Error(`Public Users Sync Failed: ${userUpsertError.message}`);
+            console.warn("Public 'users' table upsert failed (RlS?):", userUpsertError.message);
+            // Don't throw here immediately, try profile update just in case user exists
         }
 
-        // 2. Upsert into user_profiles (BYPASS RLS)
-        const { data: profile, error } = await supabaseAdmin
+        // 2. Upsert into user_profiles
+        const { data: profile, error } = await supabaseAuth
             .from('user_profiles')
             .upsert({
                 user_id: user.id,
