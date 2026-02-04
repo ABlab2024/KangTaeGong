@@ -8,6 +8,9 @@ src/backend/app/schemas/__pycache__/*
 src/backend/app/services/__pycache__/*
 src/backend/app/utils/__pycache__/*
 src/backend/app/__pycache__/*
+src/backend/app/api/__pycache__/__init__.cpython-312.pyc
+src/backend/app/api/__pycache__/deps.cpython-312.pyc
+src/backend/app/api/v1/__pycache__/__init__.cpython-312.pyc
 
 # Local Netlify folder
 .netlify
