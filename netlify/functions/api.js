@@ -44,7 +44,7 @@ exports.handler = async function (event, context) {
             };
         }
 
-        // Header Debugging & Env Check
+        // Header Debugging
         if (cleanPath === '/debug/headers') {
             return {
                 statusCode: 200,
@@ -52,11 +52,6 @@ exports.handler = async function (event, context) {
                 body: JSON.stringify({
                     headers: event.headers,
                     raw_auth: event.headers.authorization || event.headers.Authorization || "MISSING",
-                    env: {
-                        SUPABASE_URL: !!process.env.SUPABASE_URL,
-                        SUPABASE_KEY: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY),
-                        ADMIN_EMAIL: !!process.env.ADMIN_EMAIL
-                    },
                     timestamp: new Date().toISOString()
                 })
             };
@@ -389,11 +384,6 @@ async function handleSubmitSurvey(event, headers) {
         }
 
         // Upsert profile
-        // Ensure content_preferences is stringified if it's an array, to be safe for TEXT columns
-        const preferences = Array.isArray(data.content_preferences)
-            ? JSON.stringify(data.content_preferences)
-            : data.content_preferences;
-
         const { data: profile, error } = await supabase
             .from('user_profiles')
             .upsert({
@@ -403,7 +393,7 @@ async function handleSubmitSurvey(event, headers) {
                 location: data.location,
                 sns_homepage: data.sns_homepage,
                 recent_ai_link: data.recent_ai_link,
-                content_preferences: preferences,
+                content_preferences: data.content_preferences,
                 onboarding_completed: true,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' })
