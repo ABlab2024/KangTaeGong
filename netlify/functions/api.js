@@ -163,34 +163,32 @@ async function getUserFromEvent(event) {
     try {
         const authHeader = event.headers.authorization || event.headers.Authorization;
         if (!authHeader) {
-            console.warn("No Authorization header found");
-            return null;
+            return { user: null, error: "No Authorization header found" };
         }
 
         // Robust token extraction (case-insensitive and handles various formats)
         const token = authHeader.replace(/^Bearer /i, '').trim();
 
         if (!token) {
-            console.warn("Empty token after extraction. Auth Header:", authHeader);
-            return null;
+            return { user: null, error: "Empty token after extraction" };
         }
 
         // Check for Admin Token
         if (token === adminToken) {
-            return { id: "admin", email: adminEmail, is_admin: true };
+            return { user: { id: "admin", email: adminEmail, is_admin: true }, error: null };
         }
 
         const { data: { user }, error } = await supabase.auth.getUser(token);
 
         if (error) {
             console.error("Supabase getUser error:", error.message);
-            return null;
+            return { user: null, error: `Supabase Auth Error: ${error.message}` };
         }
 
-        return user;
+        return { user, error: null };
     } catch (e) {
         console.error("getUserFromEvent exception:", e.message);
-        return null;
+        return { user: null, error: `Auth Exception: ${e.message}` };
     }
 }
 
@@ -317,8 +315,8 @@ async function handleAdminLogin(event, headers) {
  * 2. Get Me
  */
 async function handleGetMe(event, headers) {
-    const user = await getUserFromEvent(event);
-    if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+    const { user, error } = await getUserFromEvent(event);
+    if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: error || "Unauthorized" }) };
     return {
         statusCode: 200,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -361,10 +359,10 @@ async function handleGetCategories(event, headers) {
  */
 async function handleSubmitSurvey(event, headers) {
     console.log("Starting survey submission...");
-    const user = await getUserFromEvent(event);
+    const { user, error: authError } = await getUserFromEvent(event);
     if (!user) {
-        console.warn("Survey submission failed: Unauthorized");
-        return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+        console.warn("Survey submission failed: Unauthorized", authError);
+        return { statusCode: 401, headers, body: JSON.stringify({ error: authError || "Unauthorized" }) };
     }
 
     const data = getRequestData(event);
@@ -422,8 +420,8 @@ async function handleSubmitSurvey(event, headers) {
  * 5. Simulation Stats
  */
 async function handleGetSimulationStats(event, headers) {
-    const user = await getUserFromEvent(event);
-    if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+    const { user, error: authError } = await getUserFromEvent(event);
+    if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: authError || "Unauthorized" }) };
 
     const { data: logs, error } = await supabase
         .from('simulation_logs')
@@ -482,7 +480,7 @@ async function handleGetThreats(event, headers) {
 
 // /admin/stats
 async function handleAdminStats(event, headers) {
-    const user = await getUserFromEvent(event);
+    const { user } = await getUserFromEvent(event);
     if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
 
     // Fake stats for MVP
@@ -502,7 +500,7 @@ async function handleAdminStats(event, headers) {
 
 // /admin/stats/scenario
 async function handleAdminScenarioStats(event, headers) {
-    const user = await getUserFromEvent(event);
+    const { user } = await getUserFromEvent(event);
     if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
 
     const scenarioStats = [
@@ -520,7 +518,7 @@ async function handleAdminScenarioStats(event, headers) {
 
 // /admin/users
 async function handleAdminUsers(event, headers) {
-    const user = await getUserFromEvent(event);
+    const { user } = await getUserFromEvent(event);
     if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
 
     const { data: users, error } = await supabase.from('users').select('*').limit(50);
@@ -540,7 +538,7 @@ async function handleAdminUsers(event, headers) {
 
 // /admin/schedule (GET)
 async function handleAdminSchedule(event, headers) {
-    const user = await getUserFromEvent(event);
+    const { user } = await getUserFromEvent(event);
     if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
 
     const schedules = [
@@ -557,7 +555,7 @@ async function handleAdminSchedule(event, headers) {
 
 // /admin/next-training-period
 async function handleAdminNextTrainingPeriod(event, headers) {
-    const user = await getUserFromEvent(event);
+    const { user } = await getUserFromEvent(event);
     if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
 
     return {
@@ -569,7 +567,7 @@ async function handleAdminNextTrainingPeriod(event, headers) {
 
 // /admin/scenario/preview
 async function handleAdminScenarioPreview(event, headers) {
-    const user = await getUserFromEvent(event);
+    const { user } = await getUserFromEvent(event);
     if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
 
     const previews = [
