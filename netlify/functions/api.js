@@ -4,6 +4,11 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
+// Admin Credentials from ENV
+const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+const adminToken = "super-admin-secret-token"; // Simple token for MVP admin session
+
 exports.handler = async function (event, context) {
     const headers = {
         'Access-Control-Allow-Origin': '*',
@@ -42,6 +47,11 @@ exports.handler = async function (event, context) {
         // Login
         if (cleanPath === '/login/email') {
             return await handleLoginEmail(event, headers);
+        }
+
+        // Admin Login
+        if (cleanPath === '/admin/login') {
+            return await handleAdminLogin(event, headers);
         }
 
         // Users
@@ -120,11 +130,38 @@ function getRequestData(event) {
 }
 
 async function getUserFromEvent(event) {
-    const authHeader = event.headers.authorization || event.headers.Authorization;
-    if (!authHeader) return null;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    return error ? null : user;
+    try {
+        const authHeader = event.headers.authorization || event.headers.Authorization;
+        if (!authHeader) {
+            console.warn("No Authorization header found");
+            return null;
+        }
+
+        // Robust token extraction (case-insensitive and handles various formats)
+        const token = authHeader.replace(/^Bearer /i, '').trim();
+
+        if (!token) {
+            console.warn("Empty token after extraction");
+            return null;
+        }
+
+        // Check for Admin Token
+        if (token === adminToken) {
+            return { id: "admin", email: adminEmail, is_admin: true };
+        }
+
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+
+        if (error) {
+            console.error("Supabase getUser error:", error.message);
+            return null;
+        }
+
+        return user;
+    } catch (e) {
+        console.error("getUserFromEvent exception:", e.message);
+        return null;
+    }
 }
 
 /**
@@ -133,6 +170,7 @@ async function getUserFromEvent(event) {
 async function handleLoginEmail(event, headers) {
     const data = getRequestData(event);
     const email = data.email;
+    const password = "kangtaegong_mvp_password";
 
     if (!email) {
         return {
@@ -144,26 +182,58 @@ async function handleLoginEmail(event, headers) {
                     received_method: event.httpMethod,
                     received_data: data,
                     content_type: event.headers['content-type'] || 'none'
-                },
-                hint: "Ensure you are sending 'email' in the JSON body or as a query parameter '?email=...'"
+                }
             })
         };
     }
 
-    const password = "kangtaegong_mvp_password";
-    let { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
+    // 1. Attempt login
+    let { data: authData, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-        // Auto-signup if user doesn't exist
-        const signUpRes = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { age_group: data.age_group, gender: data.gender } }
-        });
-        if (signUpRes.error) return { statusCode: 400, headers, body: JSON.stringify({ error: signUpRes.error.message }) };
-        authData = signUpRes.data;
+    // 2. Handle errors (user not found or email not confirmed)
+    if (loginError) {
+        console.log(`Login failed for ${email}: ${loginError.message}. Attempting admin fix...`);
+
+        if (loginError.message.includes("Email not confirmed") || loginError.message.includes("Invalid login credentials")) {
+            // Try to create or update user using Admin API to bypass email confirmation
+            const { data: adminUser, error: adminError } = await supabase.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: true,
+                user_metadata: { age_group: data.age_group, gender: data.gender }
+            });
+
+            if (adminError) {
+                // If user already exists but isn't confirmed, try to update them
+                if (adminError.message.includes("already registered") || adminError.message.includes("already exists")) {
+                    // We need user ID to update. Let's get it by email.
+                    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+                    const existingUser = users.find(u => u.email === email);
+
+                    if (existingUser) {
+                        await supabase.auth.admin.updateUserById(existingUser.id, {
+                            email_confirm: true,
+                            user_metadata: { age_group: data.age_group, gender: data.gender }
+                        });
+                        console.log(`User ${email} updated to confirmed via admin.`);
+                    }
+                } else {
+                    return { statusCode: 400, headers, body: JSON.stringify({ error: `Admin Setup Error: ${adminError.message}` }) };
+                }
+            } else {
+                console.log(`User ${email} created as confirmed via admin.`);
+            }
+
+            // Retry login after admin fix
+            const retry = await supabase.auth.signInWithPassword({ email, password });
+            if (retry.error) return { statusCode: 400, headers, body: JSON.stringify({ error: `Login Retry Failed: ${retry.error.message}` }) };
+            authData = retry.data;
+        } else {
+            return { statusCode: 400, headers, body: JSON.stringify({ error: loginError.message }) };
+        }
     }
 
+    // 3. Post-login processing
     // Check onboarding status
     const { data: profile } = await supabase
         .from('user_profiles')
@@ -180,6 +250,36 @@ async function handleLoginEmail(event, headers) {
             user_id: authData.user.id,
             onboarding_completed: profile ? !!profile.onboarding_completed : false
         })
+    };
+}
+
+/**
+ * 1.1 Admin Login (POST /admin/login)
+ */
+async function handleAdminLogin(event, headers) {
+    const data = getRequestData(event);
+    const email = data.email;
+    const password = data.password;
+
+    if (email === adminEmail && password === adminPassword) {
+        console.log(`Admin login successful for ${email}`);
+        return {
+            statusCode: 200,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                access_token: adminToken,
+                email: email,
+                is_admin: true,
+                redirect_to: "/admin/dashboard"
+            })
+        };
+    }
+
+    console.warn(`Admin login failed for ${email}`);
+    return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ error: "Invalid admin credentials" })
     };
 }
 
@@ -235,11 +335,16 @@ async function handleSubmitSurvey(event, headers) {
 
     const data = getRequestData(event);
 
-    // Update users table
-    await supabase.from('users').update({
+    // Update users table in public schema if it exists
+    const { error: userUpdateError } = await supabase.from('users').update({
         age_group: data.age_group,
         gender: data.gender
     }).eq('id', user.id);
+
+    if (userUpdateError) {
+        console.warn("Public 'users' table update failed (may not exist or permission issue):", userUpdateError.message);
+        // We continue because user_profiles update is more critical for onboarding
+    }
 
     // Upsert profile
     const { data: profile, error } = await supabase

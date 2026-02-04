@@ -21,3 +21,11 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[dev]
+  command = "npm run dev --prefix src/frontend"
+  targetPort = 8520
+  port = 8888
+  publish = "src/frontend/dist"
+
+
