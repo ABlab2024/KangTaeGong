@@ -1,5 +1,5 @@
 /**
- * Simulation API client
+ * Simulation API client (Netlify Functions)
  */
 import client from './client';
 
@@ -7,7 +7,7 @@ import client from './client';
  * Get available phishing scenarios
  */
 export const getScenarios = async () => {
-    const response = await client.get('/simulation/scenarios');
+    const response = await client.get('/simulation?action=scenarios');
     return response.data;
 };
 
@@ -15,12 +15,12 @@ export const getScenarios = async () => {
  * Send a phishing simulation email
  * @param {Object} params
  * @param {string} params.scenario - Scenario type (password_reset, payment_receipt, delivery_notice)
- * @param {string} [params.threat_case_id] - Optional threat case ID
+ * @param {string} [params.threat_id] - Optional threat case ID
  * @param {string} [params.custom_subject] - Optional custom subject
  * @param {string} [params.custom_message] - Optional custom message
  */
 export const sendSimulation = async (params) => {
-    const response = await client.post('/simulation/send', params);
+    const response = await client.post('/simulation?action=send', params);
     return response.data;
 };
 
@@ -28,7 +28,7 @@ export const sendSimulation = async (params) => {
  * Get user simulation statistics
  */
 export const getSimulationStats = async () => {
-    const response = await client.get('/simulation/stats');
+    const response = await client.get('/simulation?action=stats');
     return response.data;
 };
 
@@ -38,6 +38,6 @@ export const getSimulationStats = async () => {
  * @param {number} [limit=10] - Number of items to fetch
  */
 export const getThreats = async (skip = 0, limit = 10) => {
-    const response = await client.get('/threats', { params: { skip, limit } });
+    const response = await client.get(`/threats?skip=${skip}&limit=${limit}`);
     return response.data;
 };

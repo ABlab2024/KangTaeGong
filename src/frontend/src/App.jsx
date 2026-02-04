@@ -1,9 +1,25 @@
-import React from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// ... (existing imports)
+
+// ...
+
+<Route
+  path="/onboarding"
+  element={
+    <ProtectedRoute>
+      <ErrorBoundary>
+        <Onboarding />
+      </ErrorBoundary>
+    </ProtectedRoute>
+  }
+/>
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
+import ErrorBoundary from './components/ErrorBoundary';
 import Dashboard from './pages/Dashboard';
 import VulnerabilityAnalysis from './pages/VulnerabilityAnalysis';
 import Admin from './pages/Admin';
@@ -41,7 +57,9 @@ export default function App() {
             path="/onboarding"
             element={
               <ProtectedRoute>
-                <Onboarding />
+                <ErrorBoundary>
+                  <Onboarding />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           />

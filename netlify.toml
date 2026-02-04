@@ -1,19 +1,30 @@
 [build]
   base = "src/frontend"
   command = "npm run build"
-  publish = "src/frontend/dist"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "18"
 
 [dev]
   command = "npm --prefix src/frontend run dev"
-  targetPort = 5173
+  targetPort = 8520
   port = 8888
   autoLaunch = false
 
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  included_files = ["netlify/functions/**"]
 
+# Redirect API calls to Netlify Functions
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/api/v1/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# SPA fallback - must be last
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
   status = 200

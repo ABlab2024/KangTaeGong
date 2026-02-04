@@ -5,7 +5,7 @@ export const surveyApi = {
      * 컨텐츠 카테고리 목록 조회 (그룹별)
      */
     getCategories: async () => {
-        const response = await client.get('/survey/categories');
+        const response = await client.get('/survey?action=categories');
         return response.data;
     },
 
@@ -13,7 +13,7 @@ export const surveyApi = {
      * 온보딩 설문 제출
      */
     submitSurvey: async (surveyData) => {
-        const response = await client.post('/survey/submit', surveyData);
+        const response = await client.post('/survey?action=submit', surveyData);
         return response.data;
     },
 
@@ -21,7 +21,7 @@ export const surveyApi = {
      * LLM 취향 증강 요청
      */
     augmentPreferences: async (currentPreferences, iteration) => {
-        const response = await client.post('/survey/augment', {
+        const response = await client.post('/survey?action=augment', {
             current_preferences: currentPreferences,
             iteration: iteration,
         });
@@ -33,9 +33,7 @@ export const surveyApi = {
      * @param {boolean} refresh - true이면 새로 분석을 생성합니다
      */
     getVulnerabilityAnalysis: async (refresh = false) => {
-        const response = await client.get('/survey/vulnerability', {
-            params: { refresh }
-        });
+        const response = await client.get(`/survey?action=vulnerability&refresh=${refresh}`);
         return response.data;
     },
 
@@ -43,7 +41,7 @@ export const surveyApi = {
      * 온보딩 완료 여부 확인
      */
     checkOnboardingStatus: async () => {
-        const response = await client.get('/survey/status');
+        const response = await client.get('/survey?action=status');
         return response.data;
     },
 
@@ -51,7 +49,7 @@ export const surveyApi = {
      * 사용자 프로필 조회
      */
     getProfile: async () => {
-        const response = await client.get('/survey/profile');
+        const response = await client.get('/survey?action=profile');
         return response.data;
     },
 };
