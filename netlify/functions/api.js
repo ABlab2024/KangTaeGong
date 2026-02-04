@@ -67,6 +67,23 @@ exports.handler = async function (event, context) {
             return await handleSubmitSurvey(event, headers);
         }
 
+        // Admin Endpoints
+        if (cleanPath.startsWith('/admin/')) {
+            // Stats
+            if (cleanPath === '/admin/stats/scenario') return await handleAdminScenarioStats(event, headers);
+            if (cleanPath === '/admin/stats') return await handleAdminStats(event, headers);
+
+            // Users
+            if (cleanPath === '/admin/users') return await handleAdminUsers(event, headers);
+
+            // Schedule
+            if (cleanPath === '/admin/schedule') return await handleAdminSchedule(event, headers);
+            if (cleanPath === '/admin/next-training-period') return await handleAdminNextTrainingPeriod(event, headers);
+
+            // Scenario
+            if (cleanPath === '/admin/scenario/preview') return await handleAdminScenarioPreview(event, headers);
+        }
+
         // Simulation
         if (cleanPath === '/simulation/stats') {
             return await handleGetSimulationStats(event, headers);
@@ -330,46 +347,62 @@ async function handleGetCategories(event, headers) {
  * 4. Submit Survey
  */
 async function handleSubmitSurvey(event, headers) {
+    console.log("Starting survey submission...");
     const user = await getUserFromEvent(event);
-    if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
-
-    const data = getRequestData(event);
-
-    // Update users table in public schema if it exists
-    const { error: userUpdateError } = await supabase.from('users').update({
-        age_group: data.age_group,
-        gender: data.gender
-    }).eq('id', user.id);
-
-    if (userUpdateError) {
-        console.warn("Public 'users' table update failed (may not exist or permission issue):", userUpdateError.message);
-        // We continue because user_profiles update is more critical for onboarding
+    if (!user) {
+        console.warn("Survey submission failed: Unauthorized");
+        return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
     }
 
-    // Upsert profile
-    const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .upsert({
-            user_id: user.id,
-            age: data.age,
-            occupation: data.occupation,
-            location: data.location,
-            sns_homepage: data.sns_homepage,
-            recent_ai_link: data.recent_ai_link,
-            content_preferences: data.content_preferences,
-            onboarding_completed: true,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' })
-        .select()
-        .single();
+    const data = getRequestData(event);
+    console.log(`Processing survey for user ${user.id}`, data);
 
-    if (error) return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
+    try {
+        // Update users table in public schema if it exists
+        // Note: 'users' table in public schema is separate from auth.users
+        const { error: userUpdateError } = await supabase.from('users').update({
+            age_group: data.age_group,
+            gender: data.gender
+        }).eq('id', user.id);
 
-    return {
-        statusCode: 200,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile)
-    };
+        if (userUpdateError) {
+            console.warn("Public 'users' table update failed (may not exist or permission issue):", userUpdateError.message);
+            // We continue because user_profiles update is more critical for onboarding
+        }
+
+        // Upsert profile
+        const { data: profile, error } = await supabase
+            .from('user_profiles')
+            .upsert({
+                user_id: user.id,
+                age: data.age,
+                occupation: data.occupation,
+                location: data.location,
+                sns_homepage: data.sns_homepage,
+                recent_ai_link: data.recent_ai_link,
+                content_preferences: data.content_preferences,
+                onboarding_completed: true,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Profile upsert error:", error);
+            console.error("Error details:", error.message, error.details, error.hint);
+            return { statusCode: 500, headers, body: JSON.stringify({ error: `Profile update failed: ${error.message}` }) };
+        }
+
+        console.log("Survey submitted successfully for:", user.id);
+        return {
+            statusCode: 200,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify(profile)
+        };
+    } catch (e) {
+        console.error("Unexpected error in handleSubmitSurvey:", e);
+        return { statusCode: 500, headers, body: JSON.stringify({ error: `Internal Server Error: ${e.message}` }) };
+    }
 }
 
 /**
@@ -427,5 +460,113 @@ async function handleGetThreats(event, headers) {
         statusCode: 200,
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify(formatted)
+    };
+}
+
+/**
+ * 7. Admin Endpoint Handlers
+ */
+
+// /admin/stats
+async function handleAdminStats(event, headers) {
+    const user = await getUserFromEvent(event);
+    if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+
+    // Fake stats for MVP
+    const stats = {
+        total_users: 150,
+        average_security_score: 72,
+        total_phishing_sent: 450,
+        click_rate: "12.5%"
+    };
+
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(stats)
+    };
+}
+
+// /admin/stats/scenario
+async function handleAdminScenarioStats(event, headers) {
+    const user = await getUserFromEvent(event);
+    if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+
+    const scenarioStats = [
+        { id: "s1", name: "무료 쿠폰 지급", sent: 100, clicked: 15, click_rate: "15%" },
+        { id: "s2", name: "계정 보안 경고", sent: 120, clicked: 8, click_rate: "6.6%" },
+        { id: "s3", name: "택배 배송 지연", sent: 80, clicked: 20, click_rate: "25%" }
+    ];
+
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(scenarioStats)
+    };
+}
+
+// /admin/users
+async function handleAdminUsers(event, headers) {
+    const user = await getUserFromEvent(event);
+    if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+
+    const { data: users, error } = await supabase.from('users').select('*').limit(50);
+
+    // Fallback if users table is empty or error (users might be in auth.users only)
+    const mockUsers = [
+        { id: "u1", email: "user1@example.com", age_group: "20s", gender: "male", security_score: 80, created_at: new Date().toISOString() },
+        { id: "u2", email: "user2@example.com", age_group: "30s", gender: "female", security_score: 95, created_at: new Date().toISOString() }
+    ];
+
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(users && users.length > 0 ? users : mockUsers)
+    };
+}
+
+// /admin/schedule (GET)
+async function handleAdminSchedule(event, headers) {
+    const user = await getUserFromEvent(event);
+    if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+
+    const schedules = [
+        { id: "sch1", title: "주기적 훈련 1차", scheduled_date: "2024-03-01", status: "scheduled", target_count: 50 },
+        { id: "sch2", title: "주기적 훈련 2차", scheduled_date: "2024-03-15", status: "scheduled", target_count: 50 }
+    ];
+
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(schedules)
+    };
+}
+
+// /admin/next-training-period
+async function handleAdminNextTrainingPeriod(event, headers) {
+    const user = await getUserFromEvent(event);
+    if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date: "2024-03-01", end_date: "2024-03-07" })
+    };
+}
+
+// /admin/scenario/preview
+async function handleAdminScenarioPreview(event, headers) {
+    const user = await getUserFromEvent(event);
+    if (!user || user.id !== 'admin') return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+
+    const previews = [
+        { id: "sc1", title: "피싱 메일 1", summary: "내용 요약...", created_at: new Date().toISOString() },
+        { id: "sc2", title: "피싱 메일 2", summary: "내용 요약...", created_at: new Date().toISOString() }
+    ];
+
+    return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(previews)
     };
 }
