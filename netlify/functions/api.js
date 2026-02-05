@@ -380,7 +380,7 @@ async function handleSubmitSurvey(event, headers) {
         // Create an Authenticated Client using the user's token
         // This ensures RLS policies work correctly based on auth.uid()
         const authHeader = event.headers.authorization || event.headers.Authorization;
-        const supabaseAuth = createClient(supabaseUrl, process.env.SUPABASE_KEY, {
+        const supabaseAuth = createClient(supabaseUrl, supabaseKey, {
             global: {
                 headers: { Authorization: authHeader }
             }
@@ -509,7 +509,7 @@ async function handleGetVulnerability(event, headers) {
     // Save generated analysis
     // Use Authenticated Client
     const authHeader = event.headers.authorization || event.headers.Authorization;
-    const supabaseAuth = createClient(supabaseUrl, process.env.SUPABASE_KEY, {
+    const supabaseAuth = createClient(supabaseUrl, supabaseKey, {
         global: { headers: { Authorization: authHeader } }
     });
 
