@@ -152,12 +152,14 @@ async def process_pending_schedules():
                         
                 except Exception as e:
                     logger.error(f"❌ 스케쥴 {schedule.id} 처리 오류: {e}")
+                    await db.rollback()  # 명시적 롤백 추가
                     failed_count += 1
             
             logger.info(f"📊 처리 완료: 성공 {sent_count}건, 실패 {failed_count}건")
             
         except Exception as e:
             logger.error(f"❌ 스케쥴 처리 중 오류 발생: {e}")
+            await db.rollback()  # 명시적 롤백 추가
 
 
 def start_scheduler():
@@ -168,7 +170,10 @@ def start_scheduler():
         trigger=IntervalTrigger(minutes=1),
         id="process_training_schedules",
         name="훈련 스케쥴 처리",
-        replace_existing=True
+        replace_existing=True,
+        misfire_grace_time=60,  # 60초 내 지연은 missed로 처리하지 않음
+        coalesce=True,  # 여러 번 missed된 경우 한 번만 실행
+        max_instances=1  # 동시 실행 방지
     )
     scheduler.start()
     print("🚀 백그라운드 스케쥴러 시작됨 (1분 간격으로 스케쥴 처리)")
