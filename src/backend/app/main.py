@@ -34,8 +34,9 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:8520",
         "http://127.0.0.1:8520",
+        "https://kangtaegongsw.netlify.app",
     ],
-    allow_origin_regex=r"https://.*\.vercel\.app",  # Vercel preview/production domains
+    allow_origin_regex=r"https://.*\.(vercel\.app|netlify\.app|ngrok-free\.app)",  # Vercel/Netlify/ngrok domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
